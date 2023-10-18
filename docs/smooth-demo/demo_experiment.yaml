@@ -1,0 +1,46 @@
+experiment:
+  # Basic info suitable for inclusion in an NWB file.
+  experimenter:
+    - Last, First M
+    - Last, First Middle
+  experiment_description: An test experiment.
+  institution: University of Fiction
+  lab: The Fiction Lab
+  keywords:
+    - fictional
+    - test
+readers:
+  # Where to read data from, and how to map/transform it into buffers that trials can pick from.
+  delimiter_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      csv_file: delimiter.csv # override on cli with --readers delimiter_reader.csv_file=real.csv
+      result_name: delimiter # readers can expose results under various names, but CSV just has one.
+    simulate_delay: True # wait between events, gui demonstration
+  signal_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvSignalReader
+    args:
+      csv_file: demo_signal.csv # override on cli with --readers signal_reader.csv_file=real.csv
+      sample_frequency: 10
+      result_name: original
+    extra_buffers:
+      smoothed:
+        reader_result_name: original
+trials:
+  # How to delimit Trials in time, and how to align data within each trial.
+  start_buffer: delimiter
+  start_value: 1010
+  wrt_buffer: delimiter
+  wrt_value: 42
+  enhancers:
+    - class: pyramid.trials.standard_adjusters.SignalSmoother
+      args:
+        buffer_name: smoothed
+        kernel_size: 20
+plotters:
+  # In "gui" mode, Pyramid will set up plotters and update each plotter after each trial.
+  - class: pyramid.plotters.standard_plotters.BasicInfoPlotter
+  - class: pyramid.plotters.standard_plotters.SignalChunksPlotter
+    args:
+      xmin: -2.5
+      xmax: 3.5

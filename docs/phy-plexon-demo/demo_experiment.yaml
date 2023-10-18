@@ -1,0 +1,58 @@
+experiment:
+  # Basic info suitable for inclusion in an NWB file.
+  experimenter:
+    - Last, First M
+    - Last, First Middle
+  experiment_description: An test experiment.
+  institution: University of Fiction
+  lab: The Fiction Lab
+  keywords:
+    - fictional
+    - test
+readers:
+  plexon_reader:
+    class: pyramid.neutral_zone.readers.plexon.PlexonPlxReader
+    args:
+      # Override plx_file on cli with: --readers plexon_reader.plx_file=my_real_file.plx
+      plx_file: my_file.plx
+      signals: {}
+      spikes: all
+      spikes_prefix: plexon_
+      events:
+        Strobed: delimiter
+    # For gui demo, wait between trial delimiting events.
+    simulate_delay: True
+  phy_reader:
+    class: pyramid.neutral_zone.readers.phy.PhyClusterEventReader
+    args:
+      # Override params_file on cli with: --readers phy_reader.params_file=my_real_params.py
+      params_file: my_params.py
+      result_name: phy_clusters
+      cluster_filter: KSLabel=='good'
+trials:
+  start_buffer: delimiter
+  start_value: 1005
+  wrt_buffer: delimiter
+  wrt_value: 1010
+plotters:
+    # Plot basic info about conversion process, plus a "Quit" button.
+  - class: pyramid.plotters.standard_plotters.BasicInfoPlotter
+    # Plot Plexon spike events as raster with trials on the y-axis.
+    # Plexon spike events have two values (following the timestamp): [channel, unit].
+    # "value_index: 1" and "value_selection: 1" mean index to the unit column and select only where unit==1.
+    # This way, we only plot spikes that have been sorted to unit 1.
+  - class: pyramid.plotters.standard_plotters.SpikeEventsPlotter
+    args:
+      xmin: -1.0
+      xmax: 5.0
+      match_pattern: plexon_sig.*
+      value_index: 1
+      value_selection: 1
+    # Plot Phy spike events as raster with trials on the y-axis.
+    # Phy spike events have one value (following the timestamp): [cluster_id].
+    # For now, we just plot them all.
+  - class: pyramid.plotters.standard_plotters.SpikeEventsPlotter
+    args:
+      xmin: -1.0
+      xmax: 5.0
+      match_pattern: phy_clusters

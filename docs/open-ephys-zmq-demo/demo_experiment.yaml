@@ -1,0 +1,65 @@
+experiment:
+  # Basic info suitable for inclusion in an NWB file.
+  experimenter:
+    - Last, First M
+    - Last, First Middle
+  experiment_description: An test experiment.
+  institution: University of Fiction
+  lab: The Fiction Lab
+  keywords:
+    - fictional
+    - test
+readers:
+  # Where to read data from, and how to map/transform it into buffers that trials can pick from.
+  delimiter_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      csv_file: delimiter.csv # override on cli with --readers delimiter_reader.csv_file=real.csv
+      result_name: delimiter
+    simulate_delay: True
+  oezmq_ecodes:
+    class: pyramid.neutral_zone.readers.open_ephys_zmq.OpenEphysZmqReader
+    args:
+      host: 127.0.0.1
+      data_port: 5556
+      heartbeat_port: 5557
+      event_sample_frequency: 40000
+      events: "ecodes"
+      continuous_data:
+        0: "gaze_x"
+        1: "gaze_y"
+        2: "pupil"
+  oezmq_spikes:
+    class: pyramid.neutral_zone.readers.open_ephys_zmq.OpenEphysZmqReader
+    args:
+      host: 127.0.0.1
+      data_port: 5558
+      heartbeat_port: null
+      event_sample_frequency: 40000
+      spikes: "spikes"
+      continuous_data:
+        0: "electrode_1"
+trials:
+  start_buffer: delimiter
+  start_value: 1010
+  wrt_buffer: delimiter
+  wrt_value: 42
+plotters:
+  - class: pyramid.plotters.standard_plotters.BasicInfoPlotter
+  - class: pyramid.plotters.standard_plotters.SignalChunksPlotter
+    args:
+      xmin: -2.5
+      xmax: 3.5
+      ylabel: V?
+  - class: pyramid.plotters.standard_plotters.NumericEventsPlotter
+    args:
+      xmin: -2.5
+      xmax: 3.5
+      match_pattern: ecodes
+  - class: pyramid.plotters.standard_plotters.SpikeEventsPlotter
+    args:
+      xmin: -2.5
+      xmax: 3.5
+      match_pattern: spikes
+      value_index: 0
+      value_selection: 0

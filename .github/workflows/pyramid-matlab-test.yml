@@ -1,0 +1,18 @@
+name: pyramid-matlab-test
+
+on: push
+
+jobs:
+  test:
+    name: Run MATLAB Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+      - name: Set up MATLAB
+        uses: matlab-actions/setup-matlab@v1
+      - name: Run tests
+        uses: matlab-actions/run-tests@v1
+        with:
+          source-folder: matlab
+          select-by-folder: matlab/test

@@ -1,0 +1,106 @@
+[
+    {
+        "start_time": 0.0,
+        "end_time": 1.0,
+        "wrt_time": 0.0,
+        "numeric_events": {
+            "foo": [[0.2, 0.0]],
+            "bar": [[0.1, 1.0]],
+            "bar_2": [[0.1, -22.0]]
+        },
+        "signals": {
+            "match_trial_signal": {
+                "signal_data": [[0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0], [0.0]],
+                "sample_frequency": 10,
+                "first_sample_time": 0.0,
+                "channel_ids": ["match_trial"]
+            }
+        },
+        "enhancements": {
+            "duration": 1.0
+        },
+        "enhancement_categories": {
+            "value": ["duration"]
+        }
+    },
+    {
+        "start_time": 1.0,
+        "end_time": 2.0,
+        "wrt_time": 1.5,
+        "numeric_events": {
+            "foo": [
+                [-0.30000000000000004, 0.0],
+                [-0.19999999999999996, 1.0],
+                [0.0, 43.0]
+            ],
+            "bar": [],
+            "bar_2": []
+        },
+        "signals": {
+            "match_trial_signal": {
+                "signal_data": [[1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0]],
+                "sample_frequency": 10,
+                "first_sample_time": -0.5,
+                "channel_ids": ["match_trial"]
+            }
+        },
+        "enhancements": {
+            "duration": 1.0
+        },
+        "enhancement_categories": {
+            "value": ["duration"]
+        }
+    },
+    {
+        "start_time": 2.0,
+        "end_time": 3.0,
+        "wrt_time": 2.5,
+        "numeric_events": {
+            "foo": [
+                [-0.3099999999999996, 0.0],
+                [-0.20999999999999996, 1.0],
+                [0.0, 43.0]
+            ],
+            "bar": [],
+            "bar_2": []
+        },
+        "signals": {
+            "match_trial_signal": {
+                "signal_data": [[2.0], [2.0], [2.0], [2.0], [2.0], [2.0], [2.0], [2.0], [2.0], [2.0]],
+                "sample_frequency": 10,
+                "first_sample_time": -0.5,
+                "channel_ids": ["match_trial"]
+            }
+        },
+        "enhancements": {
+            "duration": 1.0
+        },
+        "enhancement_categories": {
+            "value": ["duration"]
+        }
+    },
+    {
+        "start_time": 3.0,
+        "end_time": null,
+        "wrt_time": 3.5,
+        "numeric_events": {
+            "foo": [[0.0, 43.0]],
+            "bar": [[-0.3999999999999999, 0.0]],
+            "bar_2": [[-0.3999999999999999, -20.0]]
+        },
+        "signals": {
+            "match_trial_signal": {
+                "signal_data": [[3.0], [3.0], [3.0], [3.0], [3.0], [3.0]],
+                "sample_frequency": 10,
+                "first_sample_time": -0.5,
+                "channel_ids": ["match_trial"]
+            }
+        },
+        "enhancements": {
+            "duration": null
+        },
+        "enhancement_categories": {
+            "value": ["duration"]
+        }
+    }
+]

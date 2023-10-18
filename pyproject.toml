@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyramid"
+description = "Declarative neuro data synthesis, processing, and trial alignment."
+keywords = []
+authors = [
+  { name="Ben Heasly", email="benjamin.heasly@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: The Unlicense (Unlicense)",
+  "Operating System :: OS Independent",
+]
+dependencies = ["numpy", "matplotlib", "PyYAML", "graphviz", "h5py", "pyzmq"]
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/benjamin-heasly/pyramid"
+"Bug Tracker" = "https://github.com/benjamin-heasly/pyramid/issues"
+
+[project.scripts]
+pyramid = "pyramid.cli:main"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+[tool.hatch]
+
+[tool.hatch.version]
+path = "src/pyramid/__about__.py"
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest",
+  "pytest-cov",
+]
+
+[tool.hatch.envs.test.scripts]
+cov = 'pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=pyramid --cov=tests -vv {args}'
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+  "/docs",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyramid"]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "sphinx",
+]
+
+[tool.hatch.envs.docs.scripts]
+# A long command!
+# This gets sphinx under control of hatch and pyproject.toml and eliminates the clunky sphinx Makefile.
+html = '''sphinx-build "docs/source" "docs/build" -b html -c docs/ -D project="$(hatch project metadata name)" -D release="$(hatch version)" -D author="Ben Heasly" {args}'''
+clean = [
+  "rm -rf docs/build",
+  "rm -rf docs/source/generated"
+]

@@ -1,0 +1,7 @@
+subject:
+  subject_id: TestSubject
+  sex: U,
+  species: Fictional fiction,
+  date_of_birth: 2000-05-08T14:00:07Z
+  description: A ficitonal test subject
+  weight: 0.0 kg

@@ -1,0 +1,60 @@
+experiment:
+  experimenter:
+    - Last, First M
+    - Last, First Middle
+  experiment_description: An test experiment.
+  institution: University of Fiction
+  lab: The Fiction Lab
+  keywords:
+    - fictional
+    - test
+readers:
+  start_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      csv_file: default.csv # override on cli with --readers start_reader.csv_file=real.csv
+      result_name: start
+    simulate_delay: True
+    sync:
+      is_reference: True
+      reader_result_name: start
+      event_value: 1010
+  wrt_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      result_name: wrt
+    sync:
+      reader_name: start_reader
+  foo_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      result_name: foo
+  bar_reader:
+    class: pyramid.neutral_zone.readers.csv.CsvNumericEventReader
+    args:
+      result_name: bar
+    extra_buffers:
+      bar_2:
+        reader_result_name: bar
+        transformers:
+          - class: pyramid.neutral_zone.transformers.standard_transformers.OffsetThenGain
+            args:
+              offset: 10
+              gain: -2
+trials:
+  # The values here tell Pyramid how to delimit Trials in time, before adding data from other buffers.
+  start_buffer: start
+  start_value: 1010
+  wrt_buffer: wrt
+  wrt_value: 42
+  enhancers:
+    - class: pyramid.trials.standard_enhancers.TrialDurationEnhancer
+    - class: pyramid.trials.standard_enhancers.TrialDurationEnhancer
+      args:
+        default_duration: 1.0
+      when: 1==2
+plotters:
+  # In "gui" mode, Pyramid will set up these plotters and update after each trial.
+  - class: pyramid.plotters.standard_plotters.BasicInfoPlotter
+  - class: pyramid.plotters.standard_plotters.NumericEventsPlotter
+  - class: pyramid.plotters.standard_plotters.SignalChunksPlotter
