@@ -15,13 +15,13 @@ Pyramid can run online as an experiment happens or offline for later data analys
 Either way, it views data as a sliding window over time.
 This approach is helpful for dealing with live data as well as large data files.
 
-Here's an overview of the inciting vision!
+Here's an overview of th vision.
 
 ![Pyramid reads data into the Neutral Zone and delimits and extracts Trials.](docs/pyramid-sketch-Page-1.png "Pyramid overview")
 
 ## The Name "Pyramid"
 
-"Pyramid" is a pun on "Python" and "FIRA", where FIRA is a set of long-standing Matlab analysis tools used by the [Gold Lab]*https://github.com/TheGoldLab/Lab_Matlab_Utilities).
+"Pyramid" is a pun on "Python" and "FIRA", where FIRA is a set of long-standing Matlab analysis tools used by the [Gold Lab](https://github.com/TheGoldLab/Lab_Matlab_Utilities).
 Pyramid is intended as a successor to FIRA.
 
 # Installation
