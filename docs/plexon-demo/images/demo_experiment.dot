@@ -2,7 +2,7 @@ digraph demo_experiment {
 	graph [label=demo_experiment overlap=scale rankdir=LR ranksep=3.0 splines=false]
 	node [penwidth=2.0]
 	edge [penwidth=2.0]
-	plexon_reader [label="plexon_reader|PlexonPlxReader|<spike_sig001>spike_sig001|<spike_sig002>spike_sig002|<spike_sig003>spike_sig003|<spike_sig004>spike_sig004|<spike_sig005>spike_sig005|<spike_sig006>spike_sig006|<spike_sig007>spike_sig007|<spike_sig008>spike_sig008|<spike_sig009>spike_sig009|<spike_sig010>spike_sig010|<spike_sig011>spike_sig011|<spike_sig012>spike_sig012|<spike_sig013>spike_sig013|<spike_sig014>spike_sig014|<spike_sig015>spike_sig015|<spike_sig016>spike_sig016|<ecodes>ecodes|<gaze_x>gaze_x|<gaze_y>gaze_y" shape=record]
+	plexon_reader [label="<plexon_reader>plexon_reader|PlexonPlxReader|<spike_sig001>spike_sig001|<spike_sig002>spike_sig002|<spike_sig003>spike_sig003|<spike_sig004>spike_sig004|<spike_sig005>spike_sig005|<spike_sig006>spike_sig006|<spike_sig007>spike_sig007|<spike_sig008>spike_sig008|<spike_sig009>spike_sig009|<spike_sig010>spike_sig010|<spike_sig011>spike_sig011|<spike_sig012>spike_sig012|<spike_sig013>spike_sig013|<spike_sig014>spike_sig014|<spike_sig015>spike_sig015|<spike_sig016>spike_sig016|<ecodes>ecodes|<gaze_x>gaze_x|<gaze_y>gaze_y" shape=record]
 	spike_sig001 [label="spike_sig001|Buffer|NumericEventList" color="#FFB000" shape=record]
 	spike_sig002 [label="spike_sig002|Buffer|NumericEventList" color="#DC267F" shape=record]
 	spike_sig003 [label="spike_sig003|Buffer|NumericEventList" color="#648FFF" shape=record]

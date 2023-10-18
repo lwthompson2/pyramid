@@ -64,6 +64,9 @@ experiment_config = {
         "bar_reader": {
             "class": "pyramid.neutral_zone.readers.csv.CsvNumericEventReader",
             "args": {"result_name": "bar"},
+            "sync": {
+                "reader_name": "delimiter_reader"
+            },
             "extra_buffers": {
                 "bar_2": {
                     "reader_result_name": "bar",

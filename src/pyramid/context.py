@@ -225,7 +225,6 @@ class PyramidContext():
     def to_graphviz(self, graph_name: str, out_file: str):
         """Do introspection of loaded config and write out a graphviz "dot" file and overview image for viewing."""
 
-        # TODO: visualize sync config, where present
         # TODO: visualize conditional enhancements, when present
         # TODO: visualize reader args
 
@@ -249,7 +248,7 @@ class PyramidContext():
         results_styles = {}
 
         for reader_index, (name, reader) in enumerate(self.readers.items()):
-            label = f"{name}|{reader.__class__.__name__}"
+            label = f"<{name}>{name}|{reader.__class__.__name__}"
             for result_index, result_name in enumerate(reader.get_initial().keys()):
                 label += f"|<{result_name}>{result_name}"
                 style_index = (reader_index + result_index) % 3
@@ -274,6 +273,38 @@ class PyramidContext():
                 wrt_buffer_name = name
 
         for reader_name, router in self.routers.items():
+            if router.sync_config:
+                sync_name = reader_name + "_sync"
+                if router.sync_config.reader_result_name:
+                    if router.sync_config.event_value:
+                        sync_label = f"{router.sync_config.reader_result_name}[{router.sync_config.event_value_index}] == {router.sync_config.event_value}"
+
+                    dot.node(name=sync_name, label=sync_label, shape="record")
+
+                    if router.sync_config.is_reference:
+                        sync_edge_label = "sync ref"
+                    else:
+                        sync_edge_label = "sync to"
+                    dot.edge(
+                        f"{reader_name}:{router.sync_config.reader_result_name}:e",
+                        f"{sync_name}:w",
+                        label=sync_edge_label,
+                        arrowhead="none",
+                        arrowtail="none"
+                    )
+
+                elif router.sync_config.reader_name != reader_name:
+                    sync_label = router.sync_config.reader_name
+                    sync_edge_label = "sync to"
+                    dot.node(name=sync_name, label=sync_label, shape="record")
+                    dot.edge(
+                        f"{reader_name}:{reader_name}:e",
+                        f"{sync_name}:w",
+                        label=sync_edge_label,
+                        arrowhead="none",
+                        arrowtail="none"
+                    )
+
             for result_index, route in enumerate(router.routes):
                 route_name = f"{reader_name}_route_{result_index}"
                 if route.transformers:
