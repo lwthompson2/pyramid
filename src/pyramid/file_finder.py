@@ -38,7 +38,6 @@ class FileFinder():
 
         for prefix in self.search_path:
             prefixed_path = Path(prefix, original).expanduser()
-            print(prefixed_path)
             if prefixed_path.exists():
                 # Use the first matching prefix, if any.
                 return prefixed_path.as_posix()

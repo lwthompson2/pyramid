@@ -1,30 +1,35 @@
 digraph demo_experiment_with_sync {
-	graph [label=demo_experiment_with_sync overlap=scale rankdir=LR ranksep=3.0 splines=false]
-	node [penwidth=2.0]
-	edge [penwidth=2.0]
-	delimiter_reader [label="<delimiter_reader>delimiter_reader|CsvNumericEventReader|<delimiter>delimiter" shape=record]
-	signal_reader [label="<signal_reader>signal_reader|CsvSignalReader|<signal>signal" shape=record]
-	signal_sync_reader [label="<signal_sync_reader>signal_sync_reader|CsvNumericEventReader|<sync>sync" shape=record]
-	delimiter [label="delimiter|Buffer|NumericEventList" color="#FFB000" shape=record]
-	signal [label="signal|Buffer|SignalChunk" color="#DC267F" shape=record]
-	sync [label="sync|Buffer|NumericEventList" color="#648FFF" shape=record]
-	delimiter_reader_sync [label="delimiter[0] == 1" shape=record]
-	delimiter_reader:delimiter:e -> delimiter_reader_sync:w [label="sync ref" arrowhead=none arrowtail=none]
-	delimiter_reader_route_0 [label="as is" color="#FFB000" shape=record]
-	delimiter_reader:delimiter:e -> delimiter_reader_route_0:w [color="#FFB000"]
-	delimiter_reader_route_0:e -> delimiter:w [color="#FFB000"]
-	signal_reader_sync [label=signal_sync_reader shape=record]
-	signal_reader:signal_reader:e -> signal_reader_sync:w [label="sync to" arrowhead=none arrowtail=none]
-	signal_reader_route_0 [label="as is" color="#DC267F" shape=record]
-	signal_reader:signal:e -> signal_reader_route_0:w [color="#DC267F"]
-	signal_reader_route_0:e -> signal:w [color="#DC267F"]
-	signal_sync_reader_sync [label="sync[0] == 1" shape=record]
-	signal_sync_reader:sync:e -> signal_sync_reader_sync:w [label="sync to" arrowhead=none arrowtail=none]
-	signal_sync_reader_route_0 [label="as is" color="#648FFF" shape=record]
-	signal_sync_reader:sync:e -> signal_sync_reader_route_0:w [color="#648FFF"]
-	signal_sync_reader_route_0:e -> sync:w [color="#648FFF"]
-	trial_delimiter [label="TrialDelimiter|start = 0" shape=record]
-	delimiter -> trial_delimiter [label=start arrowhead=none arrowtail=none]
-	trial_extractor [label="TrialExtractor|wrt = 1" shape=record]
-	delimiter -> trial_extractor [label=wrt arrowhead=none arrowtail=none]
+	graph [fontname=Arial label=demo_experiment_with_sync labeljust=l outputorder=edgesfirst overlap=scale rankdir=LR splines=false]
+	node [fillcolor=white fontname=Arial penwidth=2.0 shape=record style=filled]
+	edge [fontname=Arial penwidth=2.0]
+	subgraph cluster_buffers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=buffers margin=20 rank=same]
+		event_list [label="NumericEventList|<delimiter>delimiter|<sync>sync"]
+		signal_chunk [label="SignalChunk|<signal>signal"]
+	}
+	trial_delimiter [label="TrialDelimiter|start = 0"]
+	event_list:delimiter:e -> trial_delimiter
+	trial_extractor [label="TrialExtractor|wrt = 1"]
+	event_list:delimiter:e -> trial_extractor
+	subgraph cluster_enhancers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=enhancers margin=20 rank=same]
+	}
+	subgraph cluster_readers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=readers margin=20 rank=same]
+		delimiter_reader [label="delimiter_reader|CsvNumericEventReader|csv_file: delimiter.csv\l|result_name: delimiter\l| sync ref delimiter[0] == 1\l"]
+		signal_reader [label="signal_reader|CsvSignalReader|csv_file: signal.csv\l|sample_frequency: 10\l|result_name: signal\l| sync like signal_sync_reader\l"]
+		signal_sync_reader [label="signal_sync_reader|CsvNumericEventReader|csv_file: signal_sync.csv\l|result_name: sync\l| sync on sync[0] == 1\l"]
+	}
+	delimiter_reader -> delimiter_reader_results
+	signal_reader -> signal_reader_results
+	signal_sync_reader -> signal_sync_reader_results
+	subgraph cluster_results {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=results margin=20 rank=same]
+		delimiter_reader_results [label="<delimiter>delimiter"]
+		signal_reader_results [label="<signal>signal"]
+		signal_sync_reader_results [label="<sync>sync"]
+	}
+	delimiter_reader_results:delimiter:e -> event_list:delimiter:w
+	signal_reader_results:signal:e -> signal_chunk:signal:w
+	signal_sync_reader_results:sync:e -> event_list:sync:w
 }

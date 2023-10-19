@@ -56,6 +56,7 @@ class DynamicImport():
             instance = imported_class(file_finder=file_finder, **kwargs)
         else:
             instance = imported_class(**kwargs)
+        instance.kwargs = kwargs
         return instance
 
 

@@ -1,90 +1,60 @@
 digraph demo_experiment {
-	graph [label=demo_experiment overlap=scale rankdir=LR ranksep=3.0 splines=false]
-	node [penwidth=2.0]
-	edge [penwidth=2.0]
-	plexon_reader [label="<plexon_reader>plexon_reader|PlexonPlxReader|<spike_sig001>spike_sig001|<spike_sig002>spike_sig002|<spike_sig003>spike_sig003|<spike_sig004>spike_sig004|<spike_sig005>spike_sig005|<spike_sig006>spike_sig006|<spike_sig007>spike_sig007|<spike_sig008>spike_sig008|<spike_sig009>spike_sig009|<spike_sig010>spike_sig010|<spike_sig011>spike_sig011|<spike_sig012>spike_sig012|<spike_sig013>spike_sig013|<spike_sig014>spike_sig014|<spike_sig015>spike_sig015|<spike_sig016>spike_sig016|<ecodes>ecodes|<gaze_x>gaze_x|<gaze_y>gaze_y" shape=record]
-	spike_sig001 [label="spike_sig001|Buffer|NumericEventList" color="#FFB000" shape=record]
-	spike_sig002 [label="spike_sig002|Buffer|NumericEventList" color="#DC267F" shape=record]
-	spike_sig003 [label="spike_sig003|Buffer|NumericEventList" color="#648FFF" shape=record]
-	spike_sig004 [label="spike_sig004|Buffer|NumericEventList" color="#FFB000" shape=record]
-	spike_sig005 [label="spike_sig005|Buffer|NumericEventList" color="#DC267F" shape=record]
-	spike_sig006 [label="spike_sig006|Buffer|NumericEventList" color="#648FFF" shape=record]
-	spike_sig007 [label="spike_sig007|Buffer|NumericEventList" color="#FFB000" shape=record]
-	spike_sig008 [label="spike_sig008|Buffer|NumericEventList" color="#DC267F" shape=record]
-	spike_sig009 [label="spike_sig009|Buffer|NumericEventList" color="#648FFF" shape=record]
-	spike_sig010 [label="spike_sig010|Buffer|NumericEventList" color="#FFB000" shape=record]
-	spike_sig011 [label="spike_sig011|Buffer|NumericEventList" color="#DC267F" shape=record]
-	spike_sig012 [label="spike_sig012|Buffer|NumericEventList" color="#648FFF" shape=record]
-	spike_sig013 [label="spike_sig013|Buffer|NumericEventList" color="#FFB000" shape=record]
-	spike_sig014 [label="spike_sig014|Buffer|NumericEventList" color="#DC267F" shape=record]
-	spike_sig015 [label="spike_sig015|Buffer|NumericEventList" color="#648FFF" shape=record]
-	spike_sig016 [label="spike_sig016|Buffer|NumericEventList" color="#FFB000" shape=record]
-	ecodes [label="ecodes|Buffer|NumericEventList" color="#DC267F" shape=record]
-	gaze_x [label="gaze_x|Buffer|SignalChunk" color="#648FFF" shape=record]
-	gaze_y [label="gaze_y|Buffer|SignalChunk" color="#FFB000" shape=record]
-	delimiter [label="delimiter|Buffer|NumericEventList" shape=record]
-	plexon_reader_route_0 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig001:e -> plexon_reader_route_0:w [color="#FFB000"]
-	plexon_reader_route_0:e -> spike_sig001:w [color="#FFB000"]
-	plexon_reader_route_1 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:spike_sig002:e -> plexon_reader_route_1:w [color="#DC267F"]
-	plexon_reader_route_1:e -> spike_sig002:w [color="#DC267F"]
-	plexon_reader_route_2 [label="as is" color="#648FFF" shape=record]
-	plexon_reader:spike_sig003:e -> plexon_reader_route_2:w [color="#648FFF"]
-	plexon_reader_route_2:e -> spike_sig003:w [color="#648FFF"]
-	plexon_reader_route_3 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig004:e -> plexon_reader_route_3:w [color="#FFB000"]
-	plexon_reader_route_3:e -> spike_sig004:w [color="#FFB000"]
-	plexon_reader_route_4 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:spike_sig005:e -> plexon_reader_route_4:w [color="#DC267F"]
-	plexon_reader_route_4:e -> spike_sig005:w [color="#DC267F"]
-	plexon_reader_route_5 [label="as is" color="#648FFF" shape=record]
-	plexon_reader:spike_sig006:e -> plexon_reader_route_5:w [color="#648FFF"]
-	plexon_reader_route_5:e -> spike_sig006:w [color="#648FFF"]
-	plexon_reader_route_6 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig007:e -> plexon_reader_route_6:w [color="#FFB000"]
-	plexon_reader_route_6:e -> spike_sig007:w [color="#FFB000"]
-	plexon_reader_route_7 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:spike_sig008:e -> plexon_reader_route_7:w [color="#DC267F"]
-	plexon_reader_route_7:e -> spike_sig008:w [color="#DC267F"]
-	plexon_reader_route_8 [label="as is" color="#648FFF" shape=record]
-	plexon_reader:spike_sig009:e -> plexon_reader_route_8:w [color="#648FFF"]
-	plexon_reader_route_8:e -> spike_sig009:w [color="#648FFF"]
-	plexon_reader_route_9 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig010:e -> plexon_reader_route_9:w [color="#FFB000"]
-	plexon_reader_route_9:e -> spike_sig010:w [color="#FFB000"]
-	plexon_reader_route_10 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:spike_sig011:e -> plexon_reader_route_10:w [color="#DC267F"]
-	plexon_reader_route_10:e -> spike_sig011:w [color="#DC267F"]
-	plexon_reader_route_11 [label="as is" color="#648FFF" shape=record]
-	plexon_reader:spike_sig012:e -> plexon_reader_route_11:w [color="#648FFF"]
-	plexon_reader_route_11:e -> spike_sig012:w [color="#648FFF"]
-	plexon_reader_route_12 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig013:e -> plexon_reader_route_12:w [color="#FFB000"]
-	plexon_reader_route_12:e -> spike_sig013:w [color="#FFB000"]
-	plexon_reader_route_13 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:spike_sig014:e -> plexon_reader_route_13:w [color="#DC267F"]
-	plexon_reader_route_13:e -> spike_sig014:w [color="#DC267F"]
-	plexon_reader_route_14 [label="as is" color="#648FFF" shape=record]
-	plexon_reader:spike_sig015:e -> plexon_reader_route_14:w [color="#648FFF"]
-	plexon_reader_route_14:e -> spike_sig015:w [color="#648FFF"]
-	plexon_reader_route_15 [label="as is" color="#FFB000" shape=record]
-	plexon_reader:spike_sig016:e -> plexon_reader_route_15:w [color="#FFB000"]
-	plexon_reader_route_15:e -> spike_sig016:w [color="#FFB000"]
-	plexon_reader_route_16 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:ecodes:e -> plexon_reader_route_16:w [color="#DC267F"]
-	plexon_reader_route_16:e -> ecodes:w [color="#DC267F"]
-	plexon_reader_route_17 [label=OffsetThenGain color="#648FFF" shape=record]
-	plexon_reader:gaze_x:e -> plexon_reader_route_17:w [color="#648FFF"]
-	plexon_reader_route_17:e -> gaze_x:w [color="#648FFF"]
-	plexon_reader_route_18 [label=OffsetThenGain color="#FFB000" shape=record]
-	plexon_reader:gaze_y:e -> plexon_reader_route_18:w [color="#FFB000"]
-	plexon_reader_route_18:e -> gaze_y:w [color="#FFB000"]
-	plexon_reader_route_19 [label="as is" color="#DC267F" shape=record]
-	plexon_reader:ecodes:e -> plexon_reader_route_19:w [color="#DC267F"]
-	plexon_reader_route_19:e -> delimiter:w [color="#DC267F"]
-	trial_delimiter [label="TrialDelimiter|start = 1005" shape=record]
-	delimiter -> trial_delimiter [label=start arrowhead=none arrowtail=none]
-	trial_extractor [label="TrialExtractor|wrt = 1010|PairedCodesEnhancer|EventTimesEnhancer|ExpressionEnhancer|SaccadesEnhancer|CustomEnhancer" shape=record]
-	delimiter -> trial_extractor [label=wrt arrowhead=none arrowtail=none]
+	graph [fontname=Arial label=demo_experiment labeljust=l outputorder=edgesfirst overlap=scale rankdir=LR splines=false]
+	node [fillcolor=white fontname=Arial penwidth=2.0 shape=record style=filled]
+	edge [fontname=Arial penwidth=2.0]
+	subgraph cluster_buffers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=buffers margin=20 rank=same]
+		event_list [label="NumericEventList|<spike_sig001>spike_sig001|<spike_sig002>spike_sig002|<spike_sig003>spike_sig003|<spike_sig004>spike_sig004|<spike_sig005>spike_sig005|<spike_sig006>spike_sig006|<spike_sig007>spike_sig007|<spike_sig008>spike_sig008|<spike_sig009>spike_sig009|<spike_sig010>spike_sig010|<spike_sig011>spike_sig011|<spike_sig012>spike_sig012|<spike_sig013>spike_sig013|<spike_sig014>spike_sig014|<spike_sig015>spike_sig015|<spike_sig016>spike_sig016|<ecodes>ecodes|<delimiter>delimiter"]
+		signal_chunk [label="SignalChunk|<gaze_x>gaze_x|<gaze_y>gaze_y"]
+	}
+	trial_delimiter [label="TrialDelimiter|start = 1005"]
+	event_list:delimiter:e -> trial_delimiter
+	trial_extractor [label="TrialExtractor|wrt = 1010"]
+	event_list:delimiter:e -> trial_extractor
+	trial_extractor:e -> enhancer_0:w
+	trial_extractor:e -> enhancer_1:w
+	trial_extractor:e -> enhancer_2:w
+	trial_extractor:e -> enhancer_3:w
+	trial_extractor:e -> enhancer_4:w
+	subgraph cluster_enhancers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=enhancers margin=20 rank=same]
+		enhancer_0 [label="PairedCodesEnhancer|buffer_name: ecodes\l|{rules_csv: |{ main-ecode-rules.csv|special-ecode-rules.csv }}"]
+		enhancer_1 [label="EventTimesEnhancer|buffer_name: ecodes\l|{rules_csv: |{ main-ecode-rules.csv|special-ecode-rules.csv }}"]
+		enhancer_2 [label="ExpressionEnhancer|expression: task_id \> 0\l|value_name: actual_task\l"]
+		enhancer_3 [label="SaccadesEnhancer|when actual_task a...(fp_off) \> 0"]
+		enhancer_4 [label="CustomEnhancer|when actual_task"]
+	}
+	subgraph cluster_readers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=readers margin=20 rank=same]
+		plexon_reader [label="plexon_reader|PlexonPlxReader|plx_file: ~/data/MrM/Ra...08_05_REC.plx\l|spikes: all\l|{events: |{ Strobed: ecodes }}|{signals: |{ X50: gaze_x|Y51: gaze_y }}"]
+	}
+	plexon_reader -> plexon_reader_results
+	subgraph cluster_results {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=results margin=20 rank=same]
+		plexon_reader_results [label="<spike_sig001>spike_sig001|<spike_sig002>spike_sig002|<spike_sig003>spike_sig003|<spike_sig004>spike_sig004|<spike_sig005>spike_sig005|<spike_sig006>spike_sig006|<spike_sig007>spike_sig007|<spike_sig008>spike_sig008|<spike_sig009>spike_sig009|<spike_sig010>spike_sig010|<spike_sig011>spike_sig011|<spike_sig012>spike_sig012|<spike_sig013>spike_sig013|<spike_sig014>spike_sig014|<spike_sig015>spike_sig015|<spike_sig016>spike_sig016|<ecodes>ecodes|<gaze_x>gaze_x|<gaze_y>gaze_y"]
+	}
+	plexon_reader_results:spike_sig001:e -> event_list:spike_sig001:w
+	plexon_reader_results:spike_sig002:e -> event_list:spike_sig002:w
+	plexon_reader_results:spike_sig003:e -> event_list:spike_sig003:w
+	plexon_reader_results:spike_sig004:e -> event_list:spike_sig004:w
+	plexon_reader_results:spike_sig005:e -> event_list:spike_sig005:w
+	plexon_reader_results:spike_sig006:e -> event_list:spike_sig006:w
+	plexon_reader_results:spike_sig007:e -> event_list:spike_sig007:w
+	plexon_reader_results:spike_sig008:e -> event_list:spike_sig008:w
+	plexon_reader_results:spike_sig009:e -> event_list:spike_sig009:w
+	plexon_reader_results:spike_sig010:e -> event_list:spike_sig010:w
+	plexon_reader_results:spike_sig011:e -> event_list:spike_sig011:w
+	plexon_reader_results:spike_sig012:e -> event_list:spike_sig012:w
+	plexon_reader_results:spike_sig013:e -> event_list:spike_sig013:w
+	plexon_reader_results:spike_sig014:e -> event_list:spike_sig014:w
+	plexon_reader_results:spike_sig015:e -> event_list:spike_sig015:w
+	plexon_reader_results:spike_sig016:e -> event_list:spike_sig016:w
+	plexon_reader_results:ecodes:e -> event_list:ecodes:w
+	plexon_reader_route_17 [label="OffsetThenGain|gain: 10\l"]
+	plexon_reader_results:gaze_x:e -> plexon_reader_route_17:w
+	plexon_reader_route_17:e -> signal_chunk:gaze_x:w
+	plexon_reader_route_18 [label="OffsetThenGain|gain: 10\l"]
+	plexon_reader_results:gaze_y:e -> plexon_reader_route_18:w
+	plexon_reader_route_18:e -> signal_chunk:gaze_y:w
+	plexon_reader_results:ecodes:e -> event_list:delimiter:w
 }

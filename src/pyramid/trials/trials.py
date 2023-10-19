@@ -207,6 +207,7 @@ class TrialExpression():
         expression: str,
         default_value: Any = None
     ) -> None:
+        self.expression = expression
         self.compiled_expression = compile(expression, '<string>', 'eval')
         self.default_value = default_value
 

@@ -8,12 +8,46 @@ import yaml
 import graphviz
 
 from pyramid.file_finder import FileFinder
-from pyramid.model.model import Buffer
+from pyramid.model.model import Buffer, DynamicImport
+from pyramid.model.events import NumericEventList
+from pyramid.model.signals import SignalChunk
 from pyramid.neutral_zone.readers.readers import Reader, ReaderRoute, ReaderRouter, Transformer, ReaderSyncConfig, ReaderSyncRegistry
 from pyramid.neutral_zone.readers.delay_simulator import DelaySimulatorReader
 from pyramid.trials.trials import TrialDelimiter, TrialExtractor, TrialEnhancer, TrialExpression
 from pyramid.trials.trial_file import TrialFile
 from pyramid.plotters.plotters import Plotter, PlotFigureController
+
+
+def graphviz_format(text: str) -> str:
+    """Escape special characters in text used in GraphViz labels."""
+    escaped_text = text
+    for char in ["<", ">", "{", "}", "|"]:
+        escaped_text = escaped_text.replace(char, f"\\{char}")
+    if len(escaped_text) > 30:
+        escaped_text = escaped_text[0:13] + "..." + escaped_text[-13:]
+    return escaped_text
+
+
+def graphviz_record_label(title: str, info: dict[str, Any]):
+    """Format a GraphViz "record" label with multiple lines."""
+    label = graphviz_format(title)
+    for key, value in info.items():
+        if isinstance(value, dict) and len(value) > 0:
+            escaped_items = [f"{graphviz_format(str(k))}: {graphviz_format(str(v))}" for k, v in value.items()]
+            item_rows = "|".join(escaped_items)
+            label += f"|{{{graphviz_format(key)}: |{{ {item_rows} }}}}"
+        elif isinstance(value, list) and len(value) > 0:
+            escaped_items = [graphviz_format(str(item)) for item in value]
+            item_rows = "|".join(escaped_items)
+            label += f"|{{{graphviz_format(key)}: |{{ {item_rows} }}}}"
+        else:
+            label += f"|{graphviz_format(key)}: {graphviz_format(str(value))}\l"
+    return label
+
+
+def graphviz_label(object: DynamicImport):
+    """Format a GraphViz "record" label for a Pyramid DynamicImport object."""
+    return graphviz_record_label(object.__class__.__name__, object.kwargs)
 
 
 @dataclass
@@ -225,129 +259,131 @@ class PyramidContext():
     def to_graphviz(self, graph_name: str, out_file: str):
         """Do introspection of loaded config and write out a graphviz "dot" file and overview image for viewing."""
 
-        # TODO: visualize conditional enhancements, when present
-        # TODO: visualize reader args
-
+        # Set up a directed graph and some visual styling.
         dot = graphviz.Digraph(
             name=graph_name,
             graph_attr={
                 "rankdir": "LR",
                 "label": graph_name,
+                "labeljust": "l",
                 "splines": "false",
                 "overlap": "scale",
-                "ranksep": "3.0"
+                "outputorder": "edgesfirst",
+                "fontname": "Arial"
             },
             node_attr={
-                "penwidth": "2.0"
+                "penwidth": "2.0",
+                "shape": "record",
+                "style": "filled",
+                "fillcolor": "white",
+                "fontname": "Arial"
             },
             edge_attr={
-                "penwidth": "2.0"
+                "penwidth": "2.0",
+                "fontname": "Arial"
             }
         )
+        subgraph_attr = {
+            "color": "transparent",
+            "bgcolor": "lightgray",
+            "rank": "same",
+            "margin": "20",
+            "fontname": "Arial"
+        }
 
-        results_styles = {}
-
-        for reader_index, (name, reader) in enumerate(self.readers.items()):
-            label = f"<{name}>{name}|{reader.__class__.__name__}"
-            for result_index, result_name in enumerate(reader.get_initial().keys()):
-                label += f"|<{result_name}>{result_name}"
-                style_index = (reader_index + result_index) % 3
-                if style_index == 2:
-                    results_styles[result_name] = {"color": '#648FFF'}
-                elif style_index == 1:
-                    results_styles[result_name] = {"color": '#DC267F'}
-                else:
-                    results_styles[result_name] = {"color": '#FFB000'}
-
-            dot.node(name=name, label=label, shape="record")
-
+        # Start the graph with a node for each buffer.
         start_buffer_name = None
         wrt_buffer_name = None
-        for name, buffer in self.named_buffers.items():
-            label = f"{name}|{buffer.__class__.__name__}|{buffer.data.__class__.__name__}"
-            buffer_style = results_styles.get(name, {})
-            dot.node(name=name, label=label, shape="record", **buffer_style)
-            if buffer is self.trial_delimiter.start_buffer:
-                start_buffer_name = name
-            if buffer is self.trial_extractor.wrt_buffer:
-                wrt_buffer_name = name
+        with dot.subgraph(name="cluster_buffers", graph_attr={"label": "buffers", **subgraph_attr}) as buffers:
+            event_list_name = "event_list"
+            event_list_label = ""
+            signal_chunk_name = "signal_chunk"
+            signal_chunk_label = ""
+            for name, buffer in self.named_buffers.items():
+                if buffer is self.trial_delimiter.start_buffer:
+                    start_buffer_name = name
+                if buffer is self.trial_extractor.wrt_buffer:
+                    wrt_buffer_name = name
 
-        for reader_name, router in self.routers.items():
-            if router.sync_config:
-                sync_name = reader_name + "_sync"
-                if router.sync_config.reader_result_name:
-                    if router.sync_config.event_value:
-                        sync_label = f"{router.sync_config.reader_result_name}[{router.sync_config.event_value_index}] == {router.sync_config.event_value}"
+                if isinstance(buffer.data, NumericEventList):
+                    event_list_label += f"|<{name}>{name}"
+                elif isinstance(buffer.data, SignalChunk):
+                    signal_chunk_label += f"|<{name}>{name}"
+            if event_list_label:
+                buffers.node(name=event_list_name, label="NumericEventList" + event_list_label)
+            if signal_chunk_label:
+                buffers.node(name=signal_chunk_name, label="SignalChunk" + signal_chunk_label)
 
-                    dot.node(name=sync_name, label=sync_label, shape="record")
+        # Note which buffer will be used for delimiting trials in time.
+        delimiter_name = "trial_delimiter"
+        delimiter_label = f"{self.trial_delimiter.__class__.__name__}|start = {self.trial_delimiter.start_value}"
+        dot.node(name=delimiter_name, label=delimiter_label)
+        dot.edge(f"{event_list_name}:{start_buffer_name}:e", delimiter_name)
 
-                    if router.sync_config.is_reference:
-                        sync_edge_label = "sync ref"
-                    else:
-                        sync_edge_label = "sync to"
-                    dot.edge(
-                        f"{reader_name}:{router.sync_config.reader_result_name}:e",
-                        f"{sync_name}:w",
-                        label=sync_edge_label,
-                        arrowhead="none",
-                        arrowtail="none"
-                    )
-
-                elif router.sync_config.reader_name != reader_name:
-                    sync_label = router.sync_config.reader_name
-                    sync_edge_label = "sync to"
-                    dot.node(name=sync_name, label=sync_label, shape="record")
-                    dot.edge(
-                        f"{reader_name}:{reader_name}:e",
-                        f"{sync_name}:w",
-                        label=sync_edge_label,
-                        arrowhead="none",
-                        arrowtail="none"
-                    )
-
-            for result_index, route in enumerate(router.routes):
-                route_name = f"{reader_name}_route_{result_index}"
-                if route.transformers:
-                    labels = [transformer.__class__.__name__ for transformer in route.transformers]
-                    route_label = "|".join(labels)
-                else:
-                    route_label = "as is"
-                dot.node(name=route_name, label=route_label, shape="record", **results_styles[route.reader_result_name])
-
-                dot.edge(f"{reader_name}:{route.reader_result_name}:e",
-                         f"{route_name}:w", **results_styles[route.reader_result_name])
-                dot.edge(f"{route_name}:e", f"{route.buffer_name}:w", **results_styles[route.reader_result_name])
-
-        dot.node(
-            name="trial_delimiter",
-            label=f"{self.trial_delimiter.__class__.__name__}|start = {self.trial_delimiter.start_value}",
-            shape="record"
-        )
-        dot.edge(
-            start_buffer_name,
-            "trial_delimiter",
-            label="start",
-            arrowhead="none",
-            arrowtail="none")
-
+        # Note which buffer will be used for aligning trials in time.
+        extractor_name = "trial_extractor"
         extractor_label = f"{self.trial_extractor.__class__.__name__}|wrt = {self.trial_extractor.wrt_value}"
-        if self.trial_extractor.enhancers:
-            enhancer_names = [enhancer.__class__.__name__ for enhancer in self.trial_extractor.enhancers]
-            enhancers_label = "|".join(enhancer_names)
-            extractor_label = f"{extractor_label}|{enhancers_label}"
-        dot.node(
-            name="trial_extractor",
-            label=extractor_label,
-            shape="record"
-        )
-        dot.edge(
-            wrt_buffer_name,
-            "trial_extractor",
-            label=f"wrt",
-            arrowhead="none",
-            arrowtail="none"
-        )
+        dot.node(name=extractor_name, label=extractor_label)
+        dot.edge(f"{event_list_name}:{wrt_buffer_name}:e", extractor_name)
 
+        # Show how each trial will get enhanced after delimiting and alignment.
+        with dot.subgraph(name="cluster_enhancers", graph_attr={"label": "enhancers", **subgraph_attr}) as enhancers:
+            for index, (enhancer, when) in enumerate(self.trial_extractor.enhancers.items()):
+                enhancer_name = f"enhancer_{index}"
+                enhancer_label = graphviz_label(enhancer)
+                if when is not None:
+                    enhancer_label += f"|when {graphviz_format(when.expression)}"
+                enhancers.node(name=enhancer_name, label=enhancer_label)
+                dot.edge(f"{extractor_name}:e", f"{enhancer_name}:w")
+
+        # Show each reader and its configuration.
+        with dot.subgraph(name="cluster_readers", graph_attr={"label": "readers", **subgraph_attr}) as readers:
+            for name, router in self.routers.items():
+                reader_label = f"{name}|{graphviz_label(router.reader)}"
+                if router.sync_config:
+                    if router.sync_config.event_value:
+                        # This reader will read events to keep track of clock sync.
+                        sync_info = f"{router.sync_config.reader_result_name}[{router.sync_config.event_value_index}] == {router.sync_config.event_value}"
+                        if router.sync_config.is_reference:
+                            reader_label += f"| sync ref {sync_info}\l"
+                        else:
+                            reader_label += f"| sync on {sync_info}\l"
+                    elif router.sync_config.reader_name != name:
+                        # This reader will borrow clock sync results from another reader.
+                        reader_label += f"| sync like {router.sync_config.reader_name}\l"
+                readers.node(name=name, label=reader_label)
+
+        # Show the configured results coming from each reader.
+        with dot.subgraph(name="cluster_results", graph_attr={"label": "results", **subgraph_attr}) as results:
+            for name, router in self.routers.items():
+                results_name = f"{name}_results"
+                results_labels = [f"<{key}>{key}" for key in router.reader.get_initial().keys()]
+                results_label = "|".join(results_labels)
+                results.node(name=results_name, label=results_label)
+                dot.edge(name, results_name)
+
+        # Continue the graph with a node for each reader and its configured result names.
+        # Connect the reader results to the configured buffers.
+        for name, router in self.routers.items():
+            results_name = f"{name}_results"
+            for index, route in enumerate(router.routes):
+                route_name = f"{name}_route_{index}"
+                buffer = self.named_buffers[route.buffer_name]
+                if isinstance(buffer.data, NumericEventList):
+                    buffer_node_name = event_list_name
+                elif isinstance(buffer.data, SignalChunk):
+                    buffer_node_name = signal_chunk_name
+
+                if route.transformers:
+                    labels = [graphviz_label(transformer) for transformer in route.transformers]
+                    route_label = "|".join(labels)
+                    dot.node(name=route_name, label=route_label)
+                    dot.edge(f"{results_name}:{route.reader_result_name}:e", f"{route_name}:w")
+                    dot.edge(f"{route_name}:e", f"{buffer_node_name}:{route.buffer_name}:w")
+                else:
+                    dot.edge(f"{results_name}:{route.reader_result_name}:e", f"{buffer_node_name}:{route.buffer_name}:w")
+
+        # Render the graph and write to disk.
         out_path = Path(out_file)
         file_name = f"{out_path.stem}.dot"
         dot.render(directory=out_path.parent, filename=file_name, outfile=out_path)

@@ -1,28 +1,37 @@
 digraph demo_experiment {
-	graph [label=demo_experiment overlap=scale rankdir=LR ranksep=3.0 splines=false]
-	node [penwidth=2.0]
-	edge [penwidth=2.0]
-	delimiter_reader [label="<delimiter_reader>delimiter_reader|CsvNumericEventReader|<delimiter>delimiter" shape=record]
-	foo_reader [label="<foo_reader>foo_reader|CsvNumericEventReader|<foo>foo" shape=record]
-	bar_reader [label="<bar_reader>bar_reader|CsvNumericEventReader|<bar>bar" shape=record]
-	delimiter [label="delimiter|Buffer|NumericEventList" color="#FFB000" shape=record]
-	foo [label="foo|Buffer|NumericEventList" color="#DC267F" shape=record]
-	bar [label="bar|Buffer|NumericEventList" color="#648FFF" shape=record]
-	bar_2 [label="bar_2|Buffer|NumericEventList" shape=record]
-	delimiter_reader_route_0 [label="as is" color="#FFB000" shape=record]
-	delimiter_reader:delimiter:e -> delimiter_reader_route_0:w [color="#FFB000"]
-	delimiter_reader_route_0:e -> delimiter:w [color="#FFB000"]
-	foo_reader_route_0 [label="as is" color="#DC267F" shape=record]
-	foo_reader:foo:e -> foo_reader_route_0:w [color="#DC267F"]
-	foo_reader_route_0:e -> foo:w [color="#DC267F"]
-	bar_reader_route_0 [label="as is" color="#648FFF" shape=record]
-	bar_reader:bar:e -> bar_reader_route_0:w [color="#648FFF"]
-	bar_reader_route_0:e -> bar:w [color="#648FFF"]
-	bar_reader_route_1 [label=OffsetThenGain color="#648FFF" shape=record]
-	bar_reader:bar:e -> bar_reader_route_1:w [color="#648FFF"]
-	bar_reader_route_1:e -> bar_2:w [color="#648FFF"]
-	trial_delimiter [label="TrialDelimiter|start = 1010" shape=record]
-	delimiter -> trial_delimiter [label=start arrowhead=none arrowtail=none]
-	trial_extractor [label="TrialExtractor|wrt = 42" shape=record]
-	delimiter -> trial_extractor [label=wrt arrowhead=none arrowtail=none]
+	graph [fontname=Arial label=demo_experiment labeljust=l outputorder=edgesfirst overlap=scale rankdir=LR splines=false]
+	node [fillcolor=white fontname=Arial penwidth=2.0 shape=record style=filled]
+	edge [fontname=Arial penwidth=2.0]
+	subgraph cluster_buffers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=buffers margin=20 rank=same]
+		event_list [label="NumericEventList|<delimiter>delimiter|<foo>foo|<bar>bar|<bar_2>bar_2"]
+	}
+	trial_delimiter [label="TrialDelimiter|start = 1010"]
+	event_list:delimiter:e -> trial_delimiter
+	trial_extractor [label="TrialExtractor|wrt = 42"]
+	event_list:delimiter:e -> trial_extractor
+	subgraph cluster_enhancers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=enhancers margin=20 rank=same]
+	}
+	subgraph cluster_readers {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=readers margin=20 rank=same]
+		delimiter_reader [label="delimiter_reader|CsvNumericEventReader|csv_file: delimiter.csv\l|result_name: delimiter\l"]
+		foo_reader [label="foo_reader|CsvNumericEventReader|result_name: foo\l|csv_file: foo.csv\l"]
+		bar_reader [label="bar_reader|CsvNumericEventReader|result_name: bar\l|csv_file: bar.csv\l"]
+	}
+	delimiter_reader -> delimiter_reader_results
+	foo_reader -> foo_reader_results
+	bar_reader -> bar_reader_results
+	subgraph cluster_results {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=results margin=20 rank=same]
+		delimiter_reader_results [label="<delimiter>delimiter"]
+		foo_reader_results [label="<foo>foo"]
+		bar_reader_results [label="<bar>bar"]
+	}
+	delimiter_reader_results:delimiter:e -> event_list:delimiter:w
+	foo_reader_results:foo:e -> event_list:foo:w
+	bar_reader_results:bar:e -> event_list:bar:w
+	bar_reader_route_1 [label="OffsetThenGain|offset: 10\l|gain: -2\l"]
+	bar_reader_results:bar:e -> bar_reader_route_1:w
+	bar_reader_route_1:e -> event_list:bar_2:w
 }
