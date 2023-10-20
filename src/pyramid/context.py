@@ -204,6 +204,15 @@ class PyramidContext():
                 self.trial_extractor.populate_trial(last_trial, last_trial_number, self.experiment, self.subject)
                 writer.append_trial(last_trial)
 
+        # TODO: reopen the trial file and run the trial_extractor collecters
+        #       open the original file to read from
+        #       iterate the original file and collect() over all trials, in memory
+        #
+        #       open the original file to read from
+        #       open a temp file to write to
+        #       iterate the original file, and for each trial enhance() in memory and write to the temp file
+        #       if all went well, replace the original file with the temp file
+
     def run_with_plots(self, trial_file: str, plot_update_period: float = 0.025) -> None:
         """Run with plots and interactive GUI updates.
 
@@ -255,6 +264,15 @@ class PyramidContext():
                 self.trial_extractor.populate_trial(last_trial, last_trial_number, self.experiment, self.subject)
                 writer.append_trial(last_trial)
                 self.plot_figure_controller.plot_next(last_trial, last_trial_number)
+
+        # TODO: reopen the trial file and run the trial_extractor collecters
+        #       open the original file to read from
+        #       iterate the original file and collect() over all trials, in memory
+        #
+        #       open the original file to read from
+        #       open a temp file to write to
+        #       iterate the original file, and for each trial enhance() in memory and write to the temp file
+        #       if all went well, replace the original file with the temp file
 
     def to_graphviz(self, graph_name: str, out_file: str):
         """Do introspection of loaded config and write out a graphviz "dot" file and overview image for viewing."""
@@ -335,6 +353,8 @@ class PyramidContext():
                     enhancer_label += f"|when {graphviz_format(when.expression)}"
                 enhancers.node(name=enhancer_name, label=enhancer_label)
                 dot.edge(f"{extractor_name}:e", f"{enhancer_name}:w")
+
+        # TODO: also show collecters
 
         # Show each reader and its configuration.
         with dot.subgraph(name="cluster_readers", graph_attr={"label": "readers", **subgraph_attr}) as readers:
@@ -543,6 +563,9 @@ def configure_trials(
 
         enhancers[enhancer] = when_expression
 
+    # TODO: also look for collecters with when expressions.
+
+    # TODO: also pass in collectors with when expressions.
     trial_extractor = TrialExtractor(
         wrt_buffer=named_buffers[wrt_buffer_name],
         wrt_value=wrt_value,

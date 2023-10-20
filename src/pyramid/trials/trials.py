@@ -189,6 +189,9 @@ class TrialEnhancer(DynamicImport):
         raise NotImplementedError  # pragma: no cover
 
 
+# TODO: TrialCollecter as a subclass of enhancer with a collect() method.
+
+
 class TrialExpression():
     """Evaluate a string expression using Python eval(), with trial enhancements for local variable values.
 
@@ -241,6 +244,7 @@ class TrialExtractor():
         wrt_value_index: int = 0,
         named_buffers: dict[str, Buffer] = {},
         enhancers: dict[TrialEnhancer, TrialExpression] = {}
+        # TODO: also take collecters with when expressions
     ) -> None:
         self.wrt_buffer = wrt_buffer
         self.wrt_value = wrt_value
@@ -308,3 +312,6 @@ class TrialExtractor():
         self.wrt_buffer.data.discard_before(self.wrt_buffer.reference_time_to_raw(reference_time))
         for buffer in self.named_buffers.values():
             buffer.data.discard_before(buffer.reference_time_to_raw(reference_time))
+
+    # TODO: also be able to apply collecters collect() to a trial
+    # TODO: also be able to apply collecers enhance() to a trial
