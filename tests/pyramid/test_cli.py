@@ -110,6 +110,8 @@ experiment_config = {
     ]
 }
 
+# TODO: add a trial collecter to the test config.
+
 
 def test_gui_success(fixture_path, tmp_path):
     delimiter_csv = Path(fixture_path, "delimiter.csv").as_posix()

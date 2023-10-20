@@ -61,14 +61,14 @@ class TrialFile(ContextManager):
         raise NotImplementedError  # pragma: no cover
 
     @classmethod
-    def for_file_suffix(cls, file_name: str) -> Self:
-        suffix = Path(file_name).suffix.lower()
-        if suffix in {".json", ".jsonl"}:
-            return JsonTrialFile(file_name)
-        elif suffix in {".hdf", ".h5", ".hdf5", ".he5"}:
-            return Hdf5TrialFile(file_name)
+    def for_file_suffix(cls, file_name: str, create_empty: bool = False) -> Self:
+        suffixes = {suffix.lower() for suffix in Path(file_name).suffixes}
+        if suffixes.intersection({".json", ".jsonl"}):
+            return JsonTrialFile(file_name, create_empty)
+        elif suffixes.intersection({".hdf", ".h5", ".hdf5", ".he5"}):
+            return Hdf5TrialFile(file_name, create_empty)
         else:
-            raise NotImplementedError(f"Unsupported trial file suffix: {suffix}")
+            raise NotImplementedError(f"Unsupported trial file suffixes: {suffixes}")
 
 
 class JsonTrialFile(TrialFile):
@@ -78,12 +78,14 @@ class JsonTrialFile(TrialFile):
     https://jsonlines.org/
     """
 
-    def __init__(self, file_name: str) -> None:
+    def __init__(self, file_name: str, create_empty: bool = False) -> None:
         self.file_name = file_name
+        self.create_empty = create_empty
 
     def __enter__(self) -> Self:
-        with open(self.file_name, "w", encoding="utf-8"):
-            logging.info(f"Creating empty JSON trial file: {self.file_name}")
+        if self.create_empty:
+            with open(self.file_name, "w", encoding="utf-8"):
+                logging.info(f"Creating empty JSON trial file: {self.file_name}")
         return self
 
     def append_trial(self, trial: Trial) -> None:
@@ -176,12 +178,14 @@ class Hdf5TrialFile(TrialFile):
      - Matlab: https://www.mathworks.com/help/matlab/ref/h5read.html
     """
 
-    def __init__(self, file_name: str) -> None:
+    def __init__(self, file_name: str, truncate: bool = False) -> None:
         self.file_name = file_name
+        self.create_empty = truncate
 
     def __enter__(self) -> Self:
-        with h5py.File(self.file_name, "w"):
-            logging.info(f"Creating empty HDF5 trial file: {self.file_name}")
+        if self.create_empty:
+            with h5py.File(self.file_name, "w"):
+                logging.info(f"Creating empty HDF5 trial file: {self.file_name}")
         return self
 
     def append_trial(self, trial: Trial) -> None:

@@ -83,6 +83,7 @@ sample_trials = [
 
 
 def test_for_file_suffix():
+    # Choose TrialFile implementation based on supported extensions.
     assert isinstance(TrialFile.for_file_suffix("trial_file.json"), JsonTrialFile)
     assert isinstance(TrialFile.for_file_suffix("trial_file.jsonl"), JsonTrialFile)
     assert isinstance(TrialFile.for_file_suffix("trial_file.hdf"), Hdf5TrialFile)
@@ -90,17 +91,31 @@ def test_for_file_suffix():
     assert isinstance(TrialFile.for_file_suffix("trial_file.hdf5"), Hdf5TrialFile)
     assert isinstance(TrialFile.for_file_suffix("trial_file.he5"), Hdf5TrialFile)
 
+    # Choose TrialFile implementation with supported extensions obscured by .temp.
+    assert isinstance(TrialFile.for_file_suffix("trial_file.json.temp"), JsonTrialFile)
+    assert isinstance(TrialFile.for_file_suffix("trial_file.jsonl.temp"), JsonTrialFile)
+    assert isinstance(TrialFile.for_file_suffix("trial_file.hdf.temp"), Hdf5TrialFile)
+    assert isinstance(TrialFile.for_file_suffix("trial_file.h5.temp"), Hdf5TrialFile)
+    assert isinstance(TrialFile.for_file_suffix("trial_file.hdf5.temp"), Hdf5TrialFile)
+    assert isinstance(TrialFile.for_file_suffix("trial_file.he5.temp"), Hdf5TrialFile)
+
+    # Be strict about supported extensions, don't try to fall back on a default.
     with raises(NotImplementedError) as exception_info:
         TrialFile.for_file_suffix("trial_file.noway")
     assert exception_info.errisinstance(NotImplementedError)
-    assert "Unsupported trial file suffix: .noway" in exception_info.value.args
+    assert "Unsupported trial file suffixes: {'.noway'}" in exception_info.value.args
 
 
 def test_json_empty_trial_file(tmp_path):
     file_path = Path(tmp_path, 'trial_file.json')
     assert not file_path.exists()
 
+    # By default, trial file is not created or truncated.
     with JsonTrialFile(file_path) as trial_file:
+        assert not file_path.exists()
+
+    # But it can be created or truncated.
+    with JsonTrialFile(file_path, create_empty=True) as trial_file:
         assert file_path.exists()
         trials = [trial for trial in trial_file.read_trials()]
 
@@ -111,7 +126,7 @@ def test_json_sample_trials(tmp_path):
     file_path = Path(tmp_path, 'trial_file.json')
     assert not file_path.exists()
 
-    with JsonTrialFile(file_path) as trial_file:
+    with JsonTrialFile(file_path, create_empty=True) as trial_file:
         assert file_path.exists()
         for sample_trial in sample_trials:
             trial_file.append_trial(sample_trial)
@@ -125,7 +140,7 @@ def test_json_interleave_write_and_read(tmp_path):
     file_path = Path(tmp_path, 'trial_file.json')
     assert not file_path.exists()
 
-    with JsonTrialFile(file_path) as trial_file:
+    with JsonTrialFile(file_path, create_empty=True) as trial_file:
         assert file_path.exists()
         for sample_trial in sample_trials:
             trial_file.append_trial(sample_trial)
@@ -138,7 +153,12 @@ def test_hdf5_empty_trial_file(tmp_path):
     file_path = Path(tmp_path, 'trial_file.hdf5')
     assert not file_path.exists()
 
+    # By default, trial file is not created or truncated.
     with Hdf5TrialFile(file_path) as trial_file:
+        assert not file_path.exists()
+
+    # But it can be created or truncated.
+    with JsonTrialFile(file_path, create_empty=True) as trial_file:
         assert file_path.exists()
         trials = [trial for trial in trial_file.read_trials()]
 
@@ -149,7 +169,7 @@ def test_hdf5_sample_trials(tmp_path):
     file_path = Path(tmp_path, 'trial_file.hdf5')
     assert not file_path.exists()
 
-    with Hdf5TrialFile(file_path) as trial_file:
+    with Hdf5TrialFile(file_path, truncate=True) as trial_file:
         assert file_path.exists()
         for sample_trial in sample_trials:
             trial_file.append_trial(sample_trial)
@@ -163,7 +183,7 @@ def test_hdf5_interleave_write_and_read(tmp_path):
     file_path = Path(tmp_path, 'trial_file.hdf5')
     assert not file_path.exists()
 
-    with Hdf5TrialFile(file_path) as trial_file:
+    with Hdf5TrialFile(file_path, truncate=True) as trial_file:
         assert file_path.exists()
         for sample_trial in sample_trials:
             trial_file.append_trial(sample_trial)

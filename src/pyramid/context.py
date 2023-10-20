@@ -13,7 +13,7 @@ from pyramid.model.events import NumericEventList
 from pyramid.model.signals import SignalChunk
 from pyramid.neutral_zone.readers.readers import Reader, ReaderRoute, ReaderRouter, Transformer, ReaderSyncConfig, ReaderSyncRegistry
 from pyramid.neutral_zone.readers.delay_simulator import DelaySimulatorReader
-from pyramid.trials.trials import TrialDelimiter, TrialExtractor, TrialEnhancer, TrialExpression
+from pyramid.trials.trials import TrialDelimiter, TrialExtractor, TrialEnhancer, TrialCollecter, TrialExpression
 from pyramid.trials.trial_file import TrialFile
 from pyramid.plotters.plotters import Plotter, PlotFigureController
 
@@ -168,9 +168,10 @@ class PyramidContext():
         It seemed nicer to have separate code paths, as opposed to lots of conditionals in one uber-function.
         run_without_plots() should run without touching any GUI code, avoiding potential host graphics config issues.
         """
+        found_trial_file = self.file_finder.find(trial_file)
         with ExitStack() as stack:
             # All these "context managers" will clean up automatically when the "with" exits.
-            writer = stack.enter_context(TrialFile.for_file_suffix(self.file_finder.find(trial_file)))
+            writer = stack.enter_context(TrialFile.for_file_suffix(found_trial_file, create_empty=True))
             for reader in self.readers.values():
                 stack.enter_context(reader)
 
@@ -204,14 +205,7 @@ class PyramidContext():
                 self.trial_extractor.populate_trial(last_trial, last_trial_number, self.experiment, self.subject)
                 writer.append_trial(last_trial)
 
-        # TODO: reopen the trial file and run the trial_extractor collecters
-        #       open the original file to read from
-        #       iterate the original file and collect() over all trials, in memory
-        #
-        #       open the original file to read from
-        #       open a temp file to write to
-        #       iterate the original file, and for each trial enhance() in memory and write to the temp file
-        #       if all went well, replace the original file with the temp file
+        self.collect_and_revise(trial_file)
 
     def run_with_plots(self, trial_file: str, plot_update_period: float = 0.025) -> None:
         """Run with plots and interactive GUI updates.
@@ -220,9 +214,10 @@ class PyramidContext():
         It seemed nicer to have separate code paths, as opposed to lots of conditionals in one uber-function.
         run_without_plots() should run without touching any GUI code, avoiding potential host graphics config issues.
         """
+        found_trial_file = self.file_finder.find(trial_file)
         with ExitStack() as stack:
             # All these "context managers" will clean up automatically when the "with" exits.
-            writer = stack.enter_context(TrialFile.for_file_suffix(self.file_finder.find(trial_file)))
+            writer = stack.enter_context(TrialFile.for_file_suffix(found_trial_file, create_empty=True))
             for reader in self.readers.values():
                 stack.enter_context(reader)
             stack.enter_context(self.plot_figure_controller)
@@ -265,14 +260,37 @@ class PyramidContext():
                 writer.append_trial(last_trial)
                 self.plot_figure_controller.plot_next(last_trial, last_trial_number)
 
-        # TODO: reopen the trial file and run the trial_extractor collecters
-        #       open the original file to read from
-        #       iterate the original file and collect() over all trials, in memory
-        #
-        #       open the original file to read from
-        #       open a temp file to write to
-        #       iterate the original file, and for each trial enhance() in memory and write to the temp file
-        #       if all went well, replace the original file with the temp file
+        self.collect_and_revise(trial_file)
+
+    def collect_and_revise(self, original_trial_file: str):
+        """Reprocess the trial file to collect data or stats, and revise each trial."""
+
+        # Collect trial data or stats from the whole session, in memory.
+        logging.info(f"Collecting data or stats from trial file {original_trial_file}.")
+        with TrialFile.for_file_suffix(original_trial_file) as reader:
+            for index, trial in enumerate(reader.read_trials()):
+                self.trial_extractor.collect_trial(trial, index, self.experiment, self.subject)
+
+        try:
+            # Given the collected data or stats, revise each trial and write it back to temp file.
+            temp_trial_file = original_trial_file + ".temp"
+            logging.info(f"Revising trials to temp file {temp_trial_file}.")
+            with TrialFile.for_file_suffix(temp_trial_file, create_empty=True) as writer:
+                with TrialFile.for_file_suffix(original_trial_file) as reader:
+                    for index, trial in enumerate(reader.read_trials()):
+                        self.trial_extractor.revise_trial(trial, index, self.experiment, self.subject)
+                        writer.append_trial(trial)
+
+            # If all went well replace the old, original with the new, revised trial file.
+            Path(original_trial_file).unlink()
+            Path(temp_trial_file).rename(original_trial_file)
+
+        except Exception:
+            logging.error(f"Error revising trials:", exc_info=True)
+
+        finally:
+            # Whatever happened above, remove the temp file.
+            Path(temp_trial_file).unlink(missing_ok=True)
 
     def to_graphviz(self, graph_name: str, out_file: str):
         """Do introspection of loaded config and write out a graphviz "dot" file and overview image for viewing."""
@@ -354,7 +372,15 @@ class PyramidContext():
                 enhancers.node(name=enhancer_name, label=enhancer_label)
                 dot.edge(f"{extractor_name}:e", f"{enhancer_name}:w")
 
-        # TODO: also show collecters
+        # Show how each trial will get collected and revised after the whole session.
+        with dot.subgraph(name="cluster_collecters", graph_attr={"label": "collecters", **subgraph_attr}) as collecters:
+            for index, (collecter, when) in enumerate(self.trial_extractor.collecters.items()):
+                collecter_name = f"collecter_{index}"
+                collecter_label = graphviz_label(collecter)
+                if when is not None:
+                    collecter_label += f"|when {graphviz_format(when.expression)}"
+                collecters.node(name=collecter_name, label=collecter_label)
+                dot.edge(f"{extractor_name}:e", f"{collecter_name}:w")
 
         # Show each reader and its configuration.
         with dot.subgraph(name="cluster_readers", graph_attr={"label": "readers", **subgraph_attr}) as readers:
@@ -563,15 +589,37 @@ def configure_trials(
 
         enhancers[enhancer] = when_expression
 
-    # TODO: also look for collecters with when expressions.
+    collecters = {}
+    collecters_config = trials_config.get("collecters", [])
+    logging.info(f"Using {len(collecters_config)} summming-up collecters.")
+    for collecter_config in collecters_config:
+        collecter_class = collecter_config["class"]
+        package_path = collecter_config.get("package_path", None)
+        collecter_args = collecter_config.get("args", {})
+        collecter = TrialCollecter.from_dynamic_import(
+            collecter_class,
+            file_finder,
+            external_package_path=package_path,
+            **collecter_args
+        )
 
-    # TODO: also pass in collectors with when expressions.
+        when_string = collecter_config.get("when", None)
+        if when_string is not None:
+            logging.info(f"  {collecter_class} when {when_string}")
+            when_expression = TrialExpression(expression=when_string, default_value=False)
+        else:
+            logging.info(f"  {collecter_class}")
+            when_expression = None
+
+        collecters[collecter] = when_expression
+
     trial_extractor = TrialExtractor(
         wrt_buffer=named_buffers[wrt_buffer_name],
         wrt_value=wrt_value,
         wrt_value_index=wrt_value_index,
         named_buffers=other_buffers,
-        enhancers=enhancers
+        enhancers=enhancers,
+        collecters=collecters
     )
 
     return (trial_delimiter, trial_extractor, start_buffer_name)

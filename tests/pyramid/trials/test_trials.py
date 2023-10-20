@@ -696,3 +696,6 @@ def test_trial_error_expression():
     trial = Trial(start_time=0.0, end_time=1.0)
     result = expression.evaluate(trial)
     assert result == "No way!"
+
+
+# TODO: test trial collecters, success and error

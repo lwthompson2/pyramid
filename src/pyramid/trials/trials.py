@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 from dataclasses import dataclass, field
 import logging
 
@@ -168,7 +168,14 @@ class TrialDelimiter():
 
 
 class TrialEnhancer(DynamicImport):
-    """Compute new name-value pairs save with each trial."""
+    """Compute new name-value pairs to save with each trial.
+
+    An informal naming convention:
+     -  An "Enhancer" like adds new name-value pairs to each trial but leaves existing data untouched,
+        for example standard_enhancers.ExpressionEnhancer.
+     -  An "Adjuster" modifies or replaces existing trial data,
+        for example standard_adjusters.SignalSmoother.
+    """
 
     def enhance(
         self,
@@ -189,7 +196,26 @@ class TrialEnhancer(DynamicImport):
         raise NotImplementedError  # pragma: no cover
 
 
-# TODO: TrialCollecter as a subclass of enhancer with a collect() method.
+class TrialCollecter(TrialEnhancer):
+    """Collect data or stats from across all trials in a session, then use the data or stats to adjust each trial."""
+
+    def collect(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str: Any],
+        subject_info: dict[str: Any]
+    ) -> None:
+        """Collect data and stats from across the whole session and sace in.
+
+        Implementations should define their own fields for holding on to collected data, stats, etc.
+        The data and stats from the whole session must be able to fit in memory!
+
+        The overall data and stats can be used later, during enhance().
+        Implementations can expect to have collect() called once per trial, in order, across the whole session.
+        After that, implementations can expect to have enhance() called once per trial, in order, as well.
+        """
+        raise NotImplementedError  # pragma: no cover
 
 
 class TrialExpression():
@@ -243,14 +269,15 @@ class TrialExtractor():
         wrt_value: float,
         wrt_value_index: int = 0,
         named_buffers: dict[str, Buffer] = {},
-        enhancers: dict[TrialEnhancer, TrialExpression] = {}
-        # TODO: also take collecters with when expressions
+        enhancers: dict[TrialEnhancer, TrialExpression] = {},
+        collecters: dict[TrialCollecter, TrialExpression] = {}
     ) -> None:
         self.wrt_buffer = wrt_buffer
         self.wrt_value = wrt_value
         self.wrt_value_index = wrt_value_index
         self.named_buffers = named_buffers
         self.enhancers = enhancers
+        self.collecters = collecters
 
     def __eq__(self, other: object) -> bool:
         """Compare extractors field-wise, to support use of this class in tests."""
@@ -294,18 +321,7 @@ class TrialExtractor():
             data.shift_times(-raw_wrt_time)
             trial.add_buffer_data(name, data)
 
-        for enhancer, when_expression in self.enhancers.items():
-            if when_expression is not None:
-                # This enhancer is conditional.
-                when_result = when_expression.evaluate(trial)
-                if not when_result:
-                    # This enhancer is not needed for this trial.
-                    continue
-
-            try:
-                enhancer.enhance(trial, trial_number, experiment_info, subject_info)
-            except:
-                logging.error(f"Error applying {enhancer.__class__.__name__} to trial {trial_number}.", exc_info=True)
+        self.apply(self.enhancers, "enhance", trial, trial_number, experiment_info, subject_info)
 
     def discard_before(self, reference_time: float):
         """Let event wrt and named buffers discard data no longer needed."""
@@ -313,5 +329,52 @@ class TrialExtractor():
         for buffer in self.named_buffers.values():
             buffer.data.discard_before(buffer.reference_time_to_raw(reference_time))
 
-    # TODO: also be able to apply collecters collect() to a trial
-    # TODO: also be able to apply collecers enhance() to a trial
+    def apply(
+        self,
+        enhancers: dict[TrialEnhancer, TrialExpression],
+        method_name: str,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str: Any],
+        subject_info: dict[str: Any]
+    ):
+        """Conditionally apply the given method of each given enhancer to the given trial.
+
+        This method is used internally to represet a repeated pattern of:
+            - checking when to call each enhancer/collecter
+            - calling one or another method on each enhancer/collecter, with the given trial
+
+        It probably reads as too dynamic and too-clever-by-half!
+        But the alternative of cutting-and-pasting the same code several times also felt wrong.
+        """
+        for enhancer, when_expression in enhancers.items():
+            if when_expression is not None:
+                when_result = when_expression.evaluate(trial)
+                if not when_result:
+                    continue
+            try:
+                method = getattr(enhancer, method_name)
+                method(trial, trial_number, experiment_info, subject_info)
+            except:
+                class_name = enhancer.__class__.__name__
+                logging.error(f"Error applying {class_name}.{method_name} to trial {trial_number}.", exc_info=True)
+
+    def collect_trial(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str: Any],
+        subject_info: dict[str: Any]
+    ):
+        """Let each configured collecter collect data or stats about the given trial."""
+        self.apply(self.collecters, "collect", trial, trial_number, experiment_info, subject_info)
+
+    def revise_trial(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str: Any],
+        subject_info: dict[str: Any]
+    ):
+        """Let each configured collecter collect data or stats about the given trial."""
+        self.apply(self.collecters, "enhance", trial, trial_number, experiment_info, subject_info)

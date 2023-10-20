@@ -101,6 +101,9 @@ def test_configure_readers():
             },
         }
     }
+
+    # TODO: add a trial collecter to the test config.
+
     allow_simulate_delay = True
     (readers, named_buffers, reader_routers, sync_registry) = configure_readers(readers_config, allow_simulate_delay)
 
@@ -175,6 +178,9 @@ def test_configure_trials():
             }
         ]
     }
+
+    # TODO: add a trial collecter to the test config.
+
     named_buffers = {
         "start": Buffer(NumericEventList(np.empty([0, 2]))),
         "wrt": Buffer(NumericEventList(np.empty([0, 2])))
