@@ -17,13 +17,43 @@ from pyramid.plotters.plotters import PlotFigureController
 from pyramid.plotters.standard_plotters import BasicInfoPlotter, NumericEventsPlotter, SignalChunksPlotter
 
 from pyramid.file_finder import FileFinder
-from pyramid.context import PyramidContext, configure_readers, configure_trials, configure_plotters
+from pyramid.context import PyramidContext, configure_readers, configure_trials, configure_plotters, graphviz_format, graphviz_record_label
 
 
 @fixture
 def fixture_path(request):
     this_file = Path(request.module.__file__)
     return Path(this_file.parent, 'fixture_files')
+
+
+def test_graphviz_format():
+    assert graphviz_format("a b c") == "a b c"
+    assert graphviz_format("<a> {b} |c|") == "\\<a\\> \\{b\\} \\|c\\|"
+    assert graphviz_format("1234567890_1234567890_1234567890") == "1234567890_12...90_1234567890"
+
+
+def test_graphviz_record_label():
+    title = "Test"
+    info = {
+        "number": 10/3,
+        "string": "abc",
+        "empty_dict": {},
+        "empty_list": [],
+        "dict": {"a": 1, "b": 2},
+        "list": ["a", 1, "b", 2]
+    }
+    label = graphviz_record_label(title, info)
+    expected_label_parts = [
+        "Test",
+        "number: 3.3333333333333335\\l",
+        "string: abc\\l",
+        "empty_dict: \\{\\}\\l",
+        "empty_list: []\\l",
+        "{dict: |{ a: 1|b: 2 }}",
+        "{list: |{ a|1|b|2 }}"
+    ]
+    expected_label = "|".join(expected_label_parts)
+    assert label == expected_label
 
 
 def test_configure_readers():

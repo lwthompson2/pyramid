@@ -41,7 +41,7 @@ def graphviz_record_label(title: str, info: dict[str, Any]):
             item_rows = "|".join(escaped_items)
             label += f"|{{{graphviz_format(key)}: |{{ {item_rows} }}}}"
         else:
-            label += f"|{graphviz_format(key)}: {graphviz_format(str(value))}\l"
+            label += f"|{graphviz_format(key)}: {graphviz_format(str(value))}\\l"
     return label
 
 
@@ -365,12 +365,12 @@ class PyramidContext():
                         # This reader will read events to keep track of clock sync.
                         sync_info = f"{router.sync_config.reader_result_name}[{router.sync_config.event_value_index}] == {router.sync_config.event_value}"
                         if router.sync_config.is_reference:
-                            reader_label += f"| sync ref {sync_info}\l"
+                            reader_label += f"| sync ref {sync_info}\\l"
                         else:
-                            reader_label += f"| sync on {sync_info}\l"
+                            reader_label += f"| sync on {sync_info}\\l"
                     elif router.sync_config.reader_name != name:
                         # This reader will borrow clock sync results from another reader.
-                        reader_label += f"| sync like {router.sync_config.reader_name}\l"
+                        reader_label += f"| sync like {router.sync_config.reader_name}\\l"
                 readers.node(name=name, label=reader_label)
 
         # Show the configured results coming from each reader.

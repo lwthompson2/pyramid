@@ -94,7 +94,10 @@ experiment_config = {
         "wrt_buffer": "wrt",
         "wrt_value": 42,
         "enhancers": [
-            {"class": "pyramid.trials.standard_enhancers.TrialDurationEnhancer"}
+            {
+                "class": "pyramid.trials.standard_enhancers.TrialDurationEnhancer",
+                "when": "True"
+            }
         ]
     },
     "plotters": [
