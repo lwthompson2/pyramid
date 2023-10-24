@@ -43,3 +43,6 @@ The other figure will show signal chunks assigned to each trial.
 
 
 The trials will update every few seconds as trials occur (in `gui` mode Pyramid can simulate delay while reading from data files.)
+
+# TODO: add a signal normalizer as a trials collecter.
+# TODO: show a screen grab of the normalized signal from an HDF5 viewer.

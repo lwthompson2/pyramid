@@ -32,7 +32,7 @@ class SignalSmoother(TrialEnhancer):
         if signal is None or signal.sample_count() < self.kernel.size:
             return
 
-        # Locate the given or default signal channel (signals can have one or more columns of data).
+        # Locate the given or default signal channel (signals can have one or more column of data).
         if self.channel_id is None:
             channel_index = 0
         else:

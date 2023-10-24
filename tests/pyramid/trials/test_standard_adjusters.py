@@ -44,7 +44,7 @@ def test_signal_smoother_missing():
     signal_smoother.enhance(trial, trial_number=0, experiment_info={}, subject_info={})
 
 
-def test_signal_smoother_two_channels():
+def test_signal_smoother_multiple_channels():
     # Since signal chunks can have multiple channels, make sure the smoother can target the channel we want.
     raw_samples = np.zeros([100, 3])
     raw_samples[50, :] = 1
