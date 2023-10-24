@@ -288,6 +288,7 @@ class TrialExtractor():
                 and self.wrt_value_index == other.wrt_value_index
                 and self.named_buffers == other.named_buffers
                 and self.enhancers == other.enhancers
+                and self.collecters == other.collecters
             )
         else:  # pragma: no cover
             return False
@@ -321,7 +322,8 @@ class TrialExtractor():
             data.shift_times(-raw_wrt_time)
             trial.add_buffer_data(name, data)
 
-        self.apply(self.enhancers, "enhance", trial, trial_number, experiment_info, subject_info)
+        self.apply_enhancers(self.enhancers, "enhance", trial, trial_number, experiment_info, subject_info)
+        self.apply_enhancers(self.collecters, "collect", trial, trial_number, experiment_info, subject_info)
 
     def discard_before(self, reference_time: float):
         """Let event wrt and named buffers discard data no longer needed."""
@@ -329,7 +331,7 @@ class TrialExtractor():
         for buffer in self.named_buffers.values():
             buffer.data.discard_before(buffer.reference_time_to_raw(reference_time))
 
-    def apply(
+    def apply_enhancers(
         self,
         enhancers: dict[TrialEnhancer, TrialExpression],
         method_name: str,
@@ -359,16 +361,6 @@ class TrialExtractor():
                 class_name = enhancer.__class__.__name__
                 logging.error(f"Error applying {class_name}.{method_name} to trial {trial_number}.", exc_info=True)
 
-    def collect_trial(
-        self,
-        trial: Trial,
-        trial_number: int,
-        experiment_info: dict[str: Any],
-        subject_info: dict[str: Any]
-    ):
-        """Let each configured collecter collect data or stats about the given trial."""
-        self.apply(self.collecters, "collect", trial, trial_number, experiment_info, subject_info)
-
     def revise_trial(
         self,
         trial: Trial,
@@ -377,4 +369,4 @@ class TrialExtractor():
         subject_info: dict[str: Any]
     ):
         """Let each configured collecter collect data or stats about the given trial."""
-        self.apply(self.collecters, "enhance", trial, trial_number, experiment_info, subject_info)
+        self.apply_enhancers(self.collecters, "enhance", trial, trial_number, experiment_info, subject_info)

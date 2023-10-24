@@ -5,8 +5,9 @@ from pyramid.model.model import Buffer, BufferData
 from pyramid.model.events import NumericEventList
 from pyramid.model.signals import SignalChunk
 from pyramid.neutral_zone.readers.readers import Reader, ReaderRoute, ReaderRouter
-from pyramid.trials.trials import Trial, TrialDelimiter, TrialExtractor, TrialEnhancer, TrialExpression
+from pyramid.trials.trials import Trial, TrialDelimiter, TrialExtractor, TrialEnhancer, TrialExpression, TrialCollecter
 from pyramid.trials.standard_enhancers import TrialDurationEnhancer
+from pyramid.trials.standard_collecters import SessionPercentageCollecter
 
 
 class FakeNumericEventReader(Reader):
@@ -698,4 +699,100 @@ def test_trial_error_expression():
     assert result == "No way!"
 
 
-# TODO: test trial collecters, success and error
+class BadCollecter(TrialCollecter):
+    """Nonsense collector that always errors."""
+
+    def enhance(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str: Any],
+        subject_info: dict[str: Any]
+    ) -> None:
+        raise RuntimeError
+
+    def collect(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict,
+        subject_info: dict
+    ) -> None:
+        raise RuntimeError
+
+
+def test_collect_and_revise_trials():
+    # Expect several trials with regular durations.
+    start_times = range(0, 10)
+    start_script = [[[start, 1010]] for start in start_times]
+    start_reader = FakeNumericEventReader(script=start_script)
+    start_route = ReaderRoute("events", "start")
+    start_router = router_for_reader_and_routes(start_reader, [start_route])
+
+    delimiter = TrialDelimiter(start_router.named_buffers["start"], 1010)
+
+    # Expect wrt times part way through each trial.
+    wrt_script = [[[start + 0.5, 42]] for start in start_times]
+    wrt_reader = FakeNumericEventReader(script=wrt_script)
+    wrt_route = ReaderRoute("events", "wrt")
+    wrt_router = router_for_reader_and_routes(wrt_reader, [wrt_route])
+
+    # Collect stats during the run and revise trials afterwards.
+    # The first one always errors -- which should not blow up the overall process.
+    # The second one would error, but never gets called because of its "when" expression.
+    # The last one adds a "percent_complete" enhancement to each trial.
+    session_percentage_collecter = SessionPercentageCollecter()
+    collecters = {
+        BadCollecter(): None,
+        BadCollecter(): TrialExpression(expression="False"),
+        session_percentage_collecter: TrialExpression(expression="True")
+    }
+
+    extractor = TrialExtractor(
+        wrt_router.named_buffers["wrt"],
+        wrt_value=42,
+        collecters=collecters
+    )
+
+    # Consume the first start event at 0, which gets ignored.
+    assert start_router.route_next() == True
+
+    # Run through trials the first time, collecting stats as they come.
+    trial_file = {}
+    for index, start in enumerate(start_times[0:-1]):
+        assert start_router.route_next() == True
+        trials = delimiter.next()
+        assert len(trials) == 1
+        trial = trials[index]
+        assert trial.start_time == start
+
+        wrt_router.route_until(trial.end_time)
+        extractor.populate_trial(trial, index, {}, {})
+        assert trial.wrt_time == start + 0.5
+
+        # The session percentage collector should update its max time stat.
+        # The bad collectors should not interfere.
+        assert session_percentage_collecter.max_start_time == start
+
+        # remember all the trials we've seen, as if written to a trial file.
+        trial_file[index] = trial
+
+    # We should now be done consuming data.
+    # Pick up the last trial, which is always a special case.
+    assert start_router.route_next() == False
+    assert wrt_router.route_next() == False
+    (last_index, last_trial) = delimiter.last()
+    assert last_trial.start_time == start_times[-1]
+    assert last_index == len(start_times) - 1
+    extractor.populate_trial(last_trial, last_index, {}, {})
+    assert last_trial.wrt_time == start_times[-1] + 0.5
+    assert session_percentage_collecter.max_start_time == start_times[-1]
+    trial_file[last_index] = last_trial
+
+    # Run through all the trials again, as if at the end of the session.
+    # The session percentage collector should add a "percent_complete" to each trial.
+    # The bad collectors should not interfere.
+    for index, trial in trial_file.items():
+        extractor.revise_trial(trial, index, {}, {})
+        expected_percent_complete = 100 * trial.start_time / start_times[-1]
+        assert trial.get_enhancement("percent_complete") == expected_percent_complete

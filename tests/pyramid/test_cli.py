@@ -278,6 +278,50 @@ def test_convert(fixture_path, tmp_path):
     assert trials == expected_trials
 
 
+def test_convert_no_enhaners(fixture_path, tmp_path):
+    delimiter_csv = Path(fixture_path, "delimiter.csv").as_posix()
+    foo_csv = Path(fixture_path, "foo.csv").as_posix()
+    bar_csv = Path(fixture_path, "bar.csv").as_posix()
+    signal_csv = Path(fixture_path, "match_trial_signal.csv").as_posix()
+    subject_yaml = Path(fixture_path, "subject.yaml").as_posix()
+    trial_file = Path(tmp_path, "trial_file.json").as_posix()
+    experiment_yaml = Path(tmp_path, "experiment.yaml").as_posix()
+
+    no_enhancers_trials = {
+        "start_buffer": experiment_config["trials"]["start_buffer"],
+        "start_value": experiment_config["trials"]["start_value"],
+        "wrt_buffer": experiment_config["trials"]["wrt_buffer"],
+        "wrt_value": experiment_config["trials"]["wrt_value"]
+    }
+    no_enhancers_config = {
+        "experiment": experiment_config["experiment"],
+        "readers": experiment_config["readers"],
+        "plotters": experiment_config["plotters"],
+        "trials": no_enhancers_trials,
+    }
+
+    with open(experiment_yaml, "w") as f:
+        yaml.safe_dump(no_enhancers_config, f)
+
+    cli_args = [
+        "convert",
+        "--trial-file", trial_file,
+        "--experiment", experiment_yaml,
+        "--subject", subject_yaml,
+        "--readers",
+        f"delimiter_reader.csv_file={delimiter_csv}",
+        f"foo_reader.csv_file={foo_csv}",
+        f"bar_reader.csv_file={bar_csv}",
+        f"match_trial_signal_reader.csv_file={signal_csv}"
+    ]
+    exit_code = main(cli_args)
+    assert exit_code == 0
+
+    with open(trial_file) as f:
+        trials = [json.loads(trial_line) for trial_line in f]
+    assert len(trials) == 4
+
+
 def test_convert_error(tmp_path):
     trial_file = Path(tmp_path, "trial_file.json").as_posix()
     experiment_yaml = Path(tmp_path, "experiment.yaml").as_posix()

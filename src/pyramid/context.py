@@ -205,7 +205,7 @@ class PyramidContext():
                 self.trial_extractor.populate_trial(last_trial, last_trial_number, self.experiment, self.subject)
                 writer.append_trial(last_trial)
 
-        self.collect_and_revise(trial_file)
+        self.revise_trials(trial_file)
 
     def run_with_plots(self, trial_file: str, plot_update_period: float = 0.025) -> None:
         """Run with plots and interactive GUI updates.
@@ -260,32 +260,35 @@ class PyramidContext():
                 writer.append_trial(last_trial)
                 self.plot_figure_controller.plot_next(last_trial, last_trial_number)
 
-        self.collect_and_revise(trial_file)
+        self.revise_trials(trial_file)
 
-    def collect_and_revise(self, original_trial_file: str):
-        """Reprocess the trial file to collect data or stats, and revise each trial."""
+    def revise_trials(self, original_trial_file: str, trial_log_mod: int = 50):
+        """Reprocess the trial file to apply collected data or stats, and revise each trial."""
 
-        # Collect trial data or stats from the whole session, in memory.
-        logging.info(f"Collecting data or stats from trial file {original_trial_file}.")
-        with TrialFile.for_file_suffix(original_trial_file) as reader:
-            for index, trial in enumerate(reader.read_trials()):
-                self.trial_extractor.collect_trial(trial, index, self.experiment, self.subject)
+        if not self.trial_extractor.collecters:
+            logging.info(f"No collecters to revise trials, all done.")
+            return
 
         try:
             # Given the collected data or stats, revise each trial and write it back to temp file.
             temp_trial_file = original_trial_file + ".temp"
-            logging.info(f"Revising trials to temp file {temp_trial_file}.")
+            logging.info(f"Revising trials from collecters to temp file {temp_trial_file}.")
             with TrialFile.for_file_suffix(temp_trial_file, create_empty=True) as writer:
                 with TrialFile.for_file_suffix(original_trial_file) as reader:
-                    for index, trial in enumerate(reader.read_trials()):
-                        self.trial_extractor.revise_trial(trial, index, self.experiment, self.subject)
+                    for trial_index, trial in enumerate(reader.read_trials()):
+                        if trial_index % trial_log_mod == 0:
+                            logging.info(f"Revised {trial_index + 1} trials.")
+                        self.trial_extractor.revise_trial(trial, trial_index, self.experiment, self.subject)
                         writer.append_trial(trial)
+
+            logging.info(f"Revised {trial_index + 1} trials (last one).")
+            logging.info(f"Swapping temp file to original location {original_trial_file}.")
 
             # If all went well replace the old, original with the new, revised trial file.
             Path(original_trial_file).unlink()
             Path(temp_trial_file).rename(original_trial_file)
 
-        except Exception:
+        except Exception:  # pragma: no cover
             logging.error(f"Error revising trials:", exc_info=True)
 
         finally:

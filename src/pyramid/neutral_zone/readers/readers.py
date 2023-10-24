@@ -315,7 +315,10 @@ class ReaderRouter():
         return True
 
     def route_until(self, target_reference_time: float) -> float:
-        """Ask the reader to read data 0 or more times until catching up to a target time."""
+        """Ask the reader to read data 0 or more times until catching up to a target time.
+
+        Return the latest timestamp seen, so far.
+        """
         empty_reads = 0
         target_reader_time = target_reference_time + self.clock_drift
         while self.max_buffer_time < target_reader_time and empty_reads <= self.empty_reads_allowed:
@@ -328,7 +331,10 @@ class ReaderRouter():
         return self.max_buffer_time
 
     def update_drift_estimate(self, reference_end_time: float = None) -> float:
-        """Get a reader clock drift estimate from the sync registry and propagate it to all buffers."""
+        """Get a reader clock drift estimate from the sync registry and propagate it to all buffers.
+
+        Return the current drift estimate.
+        """
         if self.sync_config is None or self.sync_registry is None:
             return None
 
