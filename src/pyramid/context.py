@@ -362,8 +362,8 @@ class PyramidContext():
         dot.node(name=extractor_name, label=extractor_label)
         dot.edge(f"{event_list_name}:{wrt_buffer_name}:e", extractor_name)
 
-        # Show how each trial will get enhanced after delimiting and alignment.
         with dot.subgraph(name="cluster_enhancers", graph_attr={"label": "enhancers", **subgraph_attr}) as enhancers:
+            # Show how each trial will get enhanced after delimiting and alignment.
             for index, (enhancer, when) in enumerate(self.trial_extractor.enhancers.items()):
                 enhancer_name = f"enhancer_{index}"
                 enhancer_label = graphviz_label(enhancer)
@@ -372,14 +372,13 @@ class PyramidContext():
                 enhancers.node(name=enhancer_name, label=enhancer_label)
                 dot.edge(f"{extractor_name}:e", f"{enhancer_name}:w")
 
-        # Show how each trial will get collected and revised after the whole session.
-        with dot.subgraph(name="cluster_collecters", graph_attr={"label": "collecters", **subgraph_attr}) as collecters:
+            # Show how each trial will get collected and revised after the whole session.
             for index, (collecter, when) in enumerate(self.trial_extractor.collecters.items()):
                 collecter_name = f"collecter_{index}"
                 collecter_label = graphviz_label(collecter)
                 if when is not None:
                     collecter_label += f"|when {graphviz_format(when.expression)}"
-                collecters.node(name=collecter_name, label=collecter_label)
+                enhancers.node(name=collecter_name, label=collecter_label)
                 dot.edge(f"{extractor_name}:e", f"{collecter_name}:w")
 
         # Show each reader and its configuration.

@@ -3,7 +3,7 @@ from typing import Any
 from pyramid.trials.trials import Trial, TrialCollecter
 
 
-class TrialSessionPercentageCollecter(TrialCollecter):
+class SessionPercentageCollecter(TrialCollecter):
     """A simple enhancer that computes start time a percentage of the while session, for demo and testing."""
 
     def __init__(self) -> None:
@@ -40,5 +40,3 @@ class TrialSessionPercentageCollecter(TrialCollecter):
         # Compute the start time of this trial as a percentage of the whole session.
         percent_complete = 100 * trial.start_time / self.max_start_time
         trial.add_enhancement("percent_complete", percent_complete, "value")
-
-# TODO: test_standard_collecters
