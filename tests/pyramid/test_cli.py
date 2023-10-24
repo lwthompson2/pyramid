@@ -98,7 +98,14 @@ experiment_config = {
                 "class": "pyramid.trials.standard_enhancers.TrialDurationEnhancer",
                 "when": "True"
             }
+        ],
+        "collecters": [
+            {
+                "class": "pyramid.trials.standard_collecters.SessionPercentageCollecter",
+                "when": "True"
+            }
         ]
+
     },
     "plotters": [
         {"class": "pyramid.plotters.standard_plotters.SignalChunksPlotter"},
@@ -109,8 +116,6 @@ experiment_config = {
         {"class": "pyramid.plotters.standard_plotters.SpikeEventsPlotter"},
     ]
 }
-
-# TODO: add a trial collecter to the test config.
 
 
 def test_gui_success(fixture_path, tmp_path):
