@@ -53,6 +53,8 @@ trials:
       args:
         default_duration: 1.0
       when: 1==2
+  collecters:
+    - class: pyramid.trials.standard_collecters.SessionPercentageCollecter
 plotters:
   # In "gui" mode, Pyramid will set up these plotters and update after each trial.
   - class: pyramid.plotters.standard_plotters.BasicInfoPlotter

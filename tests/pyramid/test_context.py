@@ -12,6 +12,7 @@ from pyramid.neutral_zone.transformers.standard_transformers import OffsetThenGa
 
 from pyramid.trials.trials import TrialDelimiter, TrialExtractor, TrialExpression
 from pyramid.trials.standard_enhancers import TrialDurationEnhancer
+from pyramid.trials.standard_collecters import SessionPercentageCollecter
 
 from pyramid.plotters.plotters import PlotFigureController
 from pyramid.plotters.standard_plotters import BasicInfoPlotter, NumericEventsPlotter, SignalChunksPlotter
@@ -102,8 +103,6 @@ def test_configure_readers():
         }
     }
 
-    # TODO: add a trial collecter to the test config.
-
     allow_simulate_delay = True
     (readers, named_buffers, reader_routers, sync_registry) = configure_readers(readers_config, allow_simulate_delay)
 
@@ -176,10 +175,13 @@ def test_configure_trials():
                 "args": {"default_duration": 1.0},
                 "when": "1==2"
             }
+        ],
+        "collecters": [
+            {
+                "class": "pyramid.trials.standard_collecters.SessionPercentageCollecter"
+            }
         ]
     }
-
-    # TODO: add a trial collecter to the test config.
 
     named_buffers = {
         "start": Buffer(NumericEventList(np.empty([0, 2]))),
@@ -199,11 +201,16 @@ def test_configure_trials():
         TrialDurationEnhancer(): None,
         TrialDurationEnhancer(default_duration=1.0): TrialExpression(expression="1==2", default_value=False)
     }
+    expected_collecters = {
+        SessionPercentageCollecter()
+    }
     expected_trial_extractor = TrialExtractor(
         named_buffers["wrt"],
         wrt_value=42,
         named_buffers=expected_other_buffers,
-        enhancers=expected_enhancers)
+        enhancers=expected_enhancers,
+        collecters=expected_collecters
+    )
     assert trial_extractor == expected_trial_extractor
 
     assert start_buffer_name == trials_config["start_buffer"]
@@ -307,11 +314,15 @@ def test_from_yaml_and_reader_overrides(fixture_path):
         TrialDurationEnhancer(): None,
         TrialDurationEnhancer(default_duration=1.0): TrialExpression(expression="1==2", default_value=False)
     }
+    expected_collecters = {
+        SessionPercentageCollecter()
+    }
     expected_trial_extractor = TrialExtractor(
         expected_named_buffers["wrt"],
         wrt_value=42,
         named_buffers=expected_other_buffers,
-        enhancers=expected_enhancers
+        enhancers=expected_enhancers,
+        collecters=expected_collecters
     )
 
     expected_sync_registry = ReaderSyncRegistry(reference_reader_name="start_reader")
