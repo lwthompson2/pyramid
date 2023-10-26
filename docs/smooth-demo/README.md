@@ -1,6 +1,6 @@
 # Smooth Signals Demo
 
-Here's a demo / example of Pyramid signal smoothign, using a per-trial "adjuster".
+Here's a demo / example of Pyramid signal smoothing and normalizing, using a per-trial "adjuster" and an after-the-fact "collecter".
 
 ## overview
 
@@ -48,17 +48,17 @@ The trials will update every few seconds as trials occur (in `gui` mode Pyramid 
 
 Someitme it may be useful to transform trial data after the fact, after seeing the whole session.  For example, we might want to normalize some signal data on each trial, based on the overall session data range.
 
-Pyrmaid supports this kind of after-the-fact revision by way of "collecters".  These are like per-trial enhancers with an extra `collect()` method.
+Pyrmaid supports this kind of after-the-fact revision by way of "collecters".  These are like per-trial enhancers or adjusters with an extra `collect()` method.
 
 Collecters work like this:
 
  - Each configured collecter gets a chance to `collect()` each trial, as trials are coming in normally.  This is a way to gather session-wide data or statistics, for example the overall range of some signal.
 
- - After the last trial, before Pyramid exits, Pyramid iterates through all the trials again.  Each configured collector gets a chance to `enhance()` each trial based on the collected data or statistics, for example to rescale the data based on the overall mean.
+ - After the last trial, before Pyramid exits, Pyramid iterates through all the trials again.  Each configured collector gets a chance to `enhance()` each trial based on the collected data or statistics, for example to rescale the data based on the overall range.
 
-The [SignalNormalizer](https://github.com/benjamin-heasly/pyramid/blob/main/src/pyramid/trials/standard_collecters.py#L47) is a standard Pyramid collecter that implements signal rescaling as described in the example above.
+[SignalNormalizer](https://github.com/benjamin-heasly/pyramid/blob/main/src/pyramid/trials/standard_collecters.py#L47) is a standard Pyramid collecter that implements signal rescaling by overall range, as described here.
 
-Collecters can be added to an experiment in the same way as per-trial enhancers, in the experiment YAML `trials:` section.
+Collecters can be added to an experiment in the same way as per-trial enhancers and adjusters, in the experiment YAML `trials:` section.
 
 ```
 trials:
@@ -78,12 +78,15 @@ trials:
         buffer_name: smoothed
 ```
 
-All of this has already happened, in fact, with the `pyramid gui ...` command above.
-So, the smoothed signal data written to the trial file `demo_trials.hdf5` have been normalized for their maximum absolute value.
-We don't see the normalized results plotted because the normalizing happened after-the-fact.
-But we can look at the normalized data using an HDF5 viewer like the [H5Web](https://marketplace.visualstudio.com/items?itemName=h5web.vscode-h5web) extension for Visual Studio Code.
+In fact, the `SignalNormalizer` configred here has already run as part of the `gui` command above.
+As a result, the smoothed signal data written to the trial file `demo_trials.hdf5` have been normalized for their maximum absolute value.
+
+Since the normalizing happeded after-the-fact, just before Pyramid exited, we didn't see the normalized version of the data in a Pyramid plotter.
+We can look at the normalized data that's in the actual trial file using an HDF5 viewer, for example the [H5Web](https://marketplace.visualstudio.com/items?itemName=h5web.vscode-h5web) extension for Visual Studio Code.
 
 ![Plot of normalized, smoothed signal chunk as seed with H5Web.](normalized-smoothed-signal-h5web.png "Plot of smoothed, normalized signal chunk")
 
-The comparison is a bit awkward, but this image shows the same signal that appears in the Pyramid plotter image above, in bright green, as "smoothed rando".
-Where the original had a maximum of about 6.5, the normalized version here has a max of about 0.9.
+The comparison is a bit awkward, but this image shows the same signal that appears in the Pyramid plotter image above.
+In the original, it was a bright green line labeled "smoothed rando", with max value of about 6.5.
+Here in the normalized version, the same signal has a max of about 0.9.
+The normalized max value is not 1.0 because the normalization was based on the overall data range, not the per-trial data range.
