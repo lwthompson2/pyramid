@@ -272,17 +272,18 @@ class PyramidContext():
         try:
             # Given the collected data or stats, revise each trial and write it back to temp file.
             temp_trial_file = original_trial_file + ".temp"
-            logging.info(f"Revising trials from collecters to temp file {temp_trial_file}.")
+            logging.info(f"Letting collecters revise trials to temp file: {temp_trial_file}.")
             with TrialFile.for_file_suffix(temp_trial_file, create_empty=True) as writer:
                 with TrialFile.for_file_suffix(original_trial_file) as reader:
                     for trial_index, trial in enumerate(reader.read_trials()):
-                        if trial_index % trial_log_mod == 0:
-                            logging.info(f"Revised {trial_index + 1} trials.")
+                        trial_count = trial_index + 1
+                        if trial_count % trial_log_mod == 0:
+                            logging.info(f"Revised {trial_count} trials.")
                         self.trial_extractor.revise_trial(trial, trial_index, self.experiment, self.subject)
                         writer.append_trial(trial)
 
-            logging.info(f"Revised {trial_index + 1} trials (last one).")
-            logging.info(f"Swapping temp file to original location {original_trial_file}.")
+            logging.info(f"Revised {trial_count} trials (last one).")
+            logging.info(f"Swapping temp file to original location: {original_trial_file}.")
 
             # If all went well replace the old, original with the new, revised trial file.
             Path(original_trial_file).unlink()
@@ -375,13 +376,14 @@ class PyramidContext():
                 enhancers.node(name=enhancer_name, label=enhancer_label)
                 dot.edge(f"{extractor_name}:e", f"{enhancer_name}:w")
 
+        with dot.subgraph(name="cluster_collecters", graph_attr={"label": "collecters", **subgraph_attr}) as collecters:
             # Show how each trial will get collected and revised after the whole session.
             for index, (collecter, when) in enumerate(self.trial_extractor.collecters.items()):
                 collecter_name = f"collecter_{index}"
                 collecter_label = graphviz_label(collecter)
                 if when is not None:
                     collecter_label += f"|when {graphviz_format(when.expression)}"
-                enhancers.node(name=collecter_name, label=collecter_label)
+                collecters.node(name=collecter_name, label=collecter_label)
                 dot.edge(f"{extractor_name}:e", f"{collecter_name}:w")
 
         # Show each reader and its configuration.

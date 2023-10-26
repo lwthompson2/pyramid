@@ -66,7 +66,7 @@ class SignalNormalizer(TrialCollecter):
     ) -> None:
         # Locate the named buffer in the current trial.
         signal = trial.signals.get(self.buffer_name, None)
-        if signal is None:
+        if signal is None or signal.sample_count() < 1:
             return
 
         # Locate the given or default signal channel (signals can have one or more column of data).
@@ -90,7 +90,7 @@ class SignalNormalizer(TrialCollecter):
     ) -> None:
         # Locate the named buffer in the current trial.
         signal = trial.signals.get(self.buffer_name, None)
-        if signal is None:
+        if signal is None or signal.sample_count() < 1:
             return
 
         # Locate the given or default signal channel (signals can have one or more columns of data).

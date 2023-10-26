@@ -16,6 +16,11 @@ digraph demo_experiment {
 		graph [bgcolor=lightgray color=transparent fontname=Arial label=enhancers margin=20 rank=same]
 		enhancer_0 [label="SignalSmoother|buffer_name: smoothed\l|kernel_size: 20\l"]
 	}
+	trial_extractor:e -> collecter_0:w
+	subgraph cluster_collecters {
+		graph [bgcolor=lightgray color=transparent fontname=Arial label=collecters margin=20 rank=same]
+		collecter_0 [label="SignalNormalizer|buffer_name: smoothed\l"]
+	}
 	subgraph cluster_readers {
 		graph [bgcolor=lightgray color=transparent fontname=Arial label=readers margin=20 rank=same]
 		delimiter_reader [label="delimiter_reader|CsvNumericEventReader|csv_file: delimiter.csv\l|result_name: delimiter\l"]

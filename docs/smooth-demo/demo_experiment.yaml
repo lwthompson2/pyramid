@@ -37,6 +37,10 @@ trials:
       args:
         buffer_name: smoothed
         kernel_size: 20
+  collecters:
+    - class: pyramid.trials.standard_collecters.SignalNormalizer
+      args:
+        buffer_name: smoothed
 plotters:
   # In "gui" mode, Pyramid will set up plotters and update each plotter after each trial.
   - class: pyramid.plotters.standard_plotters.BasicInfoPlotter

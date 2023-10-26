@@ -138,3 +138,18 @@ def test_signal_normalizer_missing_buffer():
     collecter = SignalNormalizer(buffer_name="missing")
     collecter.collect(trial, 0, {}, {})
     collecter.enhance(trial, 0, {}, {})
+
+
+def test_signal_normalizer_empty_buffer():
+    # It should be a safe no-op to try normalizing a signal that's present but empty.
+    trial = Trial(start_time=0.0, end_time=10.0)
+    trial.add_buffer_data("empty", SignalChunk(
+        sample_data=np.empty([0, 2]),
+        sample_frequency=10,
+        first_sample_time=0,
+        channel_ids=["a"]
+    ))
+
+    collecter = SignalNormalizer(buffer_name="empty")
+    collecter.collect(trial, 0, {}, {})
+    collecter.enhance(trial, 0, {}, {})
