@@ -1,10 +1,11 @@
 from typing import Any
 from numpy import bool_
-import numpy as np
 import csv
-import matplotlib.pyplot as plt
+import os
+import ctypes
+import numpy as np
 import time
-from scipy.ndimage import gaussian_filter1d
+
 from pyramid.file_finder import FileFinder
 from pyramid.trials.trials import Trial, TrialEnhancer, TrialExpression
 
@@ -238,73 +239,155 @@ class ExpressionEnhancer(TrialEnhancer):
 
         trial.add_enhancement(self.value_name, value, self.value_category)
 
+""" Saccade detection, see:
+    https://link.springer.com/article/10.3758/s13428-019-01304-3
+    https://github.com/richardschweitzer/OnlineSaccadeDetection
+"""
+### this is the class for the returned structure of the detection algorithm
+class detection_results(ctypes.Structure):
+    _fields_ = [('sac_detected', ctypes.c_double),
+                ('sac_t', ctypes.c_double), 
+                ('sac_vx', ctypes.c_double), 
+                ('sac_vy', ctypes.c_double), 
+                ('threshold_vx', ctypes.c_double), 
+                ('threshold_vy', ctypes.c_double), 
+                ('sac_t_onset', ctypes.c_double) ]
+
+### this is the detection module
+class online_sac_detect:
+    
+    def __init__(self, lib_name='detect_saccade.so', lib_path=''):
+        # print('Loading online saccade detection Python module ' + __name__ + ' (by Richard Schweitzer)')
+        print('Loading online saccade detection Python module (by Richard Schweitzer)')
+        # load the C file
+        if lib_path=='':
+            lib_path = os.path.dirname(os.path.realpath(__file__)) + '/'
+        self.lib_name = lib_name
+        self.lib_path = lib_path
+        # print('Now CDLL-loading: ' + self.lib_path + self.lib_name)
+        self.lib_sac_detect = ctypes.CDLL(self.lib_path + self.lib_name)
+        # define the results type of the detect function 
+        self.lib_sac_detect.run_detection.restype = detection_results 
+        # not preallocate
+        self.x = np.array([])
+        self.y = np.array([])
+        self.t = np.array([])
+        self.current_n_samples = 0
+        # set the default parameters:
+        # print('Loading default parameters... Call set_parameters() to change!')
+        self.set_parameters(print_parameters=False)
+        # print('Ready to go! Now you only have to import some data via add_data()!')
+
+    def set_parameters(self, thres_fac=10, above_thres_needed=3, 
+                       restrict_dir_min=0, restrict_dir_max=0,
+                       samp_rate=0, anchor_vel_thres=10, print_results=0, 
+                       print_parameters=False):
+        self.thres_fac = thres_fac
+        self.above_thres_needed = above_thres_needed
+        self.restrict_dir_min = restrict_dir_min
+        self.restrict_dir_max = restrict_dir_max
+        self.samp_rate = samp_rate
+        self.anchor_vel_thres = anchor_vel_thres
+        self.print_results = print_results
+        if print_parameters:
+            print('Sac detect parameters are now: thres_fac=' + str(self.thres_fac) +  
+                  ' above_thres_needed=' + str(self.above_thres_needed) + 
+                  ' restrict_dir min max =' + str([self.restrict_dir_min, self.restrict_dir_max]) + 
+                  ' samp_rate=' + str(self.samp_rate) + 
+                  ' anchor_vel_thres=' + str(self.anchor_vel_thres) + 
+                  ' print_results=' + str(self.print_results) )
+    
+    def get_parameters(self):
+        return(self.thres_fac, self.above_thres_needed, 
+            self.restrict_dir_min, self.restrict_dir_max, 
+            self.samp_rate, self.anchor_vel_thres, self.print_results)
+    
+    def reset_data(self):
+        self.x = np.array([], dtype=float)
+        self.y = np.array([], dtype=float)
+        self.t = np.array([], dtype=float)
+        self.current_n_samples = 0
+    
+    def add_data(self, x, y, t):
+        self.x = np.append(self.x, np.array(x, dtype=float))
+        self.y = np.append(self.y, np.array(y, dtype=float))
+        self.t = np.append(self.t, np.array(t, dtype=float))
+        assert(np.size(x)==np.size(y))
+        assert(np.size(x)==np.size(t))
+        self.current_n_samples = len(self.x)
+    
+    def return_data(self):
+        return(self.x, self.y, self.t)
+    
+    def run_detection(self):
+        x_p = self.x.ctypes.data_as(ctypes.c_void_p)
+        y_p = self.y.ctypes.data_as(ctypes.c_void_p)
+        t_p = self.t.ctypes.data_as(ctypes.c_void_p)
+        if np.size(self.x) < (2*self.above_thres_needed):
+            print('WARNING: You run the detection without having more than twice the amount of samples needed!')
+        t0 = time.time()
+        res_here = self.lib_sac_detect.run_detection( x_p, y_p, t_p, 
+                                 self.thres_fac, self.above_thres_needed, 
+                                 self.restrict_dir_min, self.restrict_dir_max,
+                                 self.samp_rate, self.anchor_vel_thres, self.print_results, 
+                                 self.current_n_samples ) 
+        run_time_here = (time.time() - t0) * 1000 # in ms
+        return(res_here, run_time_here)
+
 class SaccadesEnhancer(TrialEnhancer):
-    """
-        Parse saccades from the x,y eye position traces in a trial
-        Uses velocity and acceleration thresholds
+    """Standard way of parsing saccades from the eye position traces in a trial
+
+    Args:
+        expression:     string Python expression to evaluate for each trial as a TrialExpression
+        value_name:     name of the enhancement to add to each trial, with the expression value
+        value_category: optional category to go with value_name (default is "value")
+        default_value:  default value to return in case of expression evaluation error (default is None)
     """
 
     def __init__(
         self,
-        max_saccades: int = 1,
+        max_saccades: int = 2,
         center_at_fp: bool = True,
         x_buffer_name: str = "gaze_x",
         y_buffer_name: str = "gaze_y",
         fp_off_name: str = "fp_off",
-        all_off_name: str = "all_off",
         fp_x_name: str = "fp_x",
         fp_y_name: str = "fp_y",
-        max_time_ms: int = 2000,
-        sample_rate_hz: float = 1000,
-        position_smoothing_kernel_size_ms: int = 0, # >1 for smoothing
-        velocity_smoothing_kernel_size_ms: int = 10, # >1 for smoothing
-        acceleration_smoothing_kernel_size_ms: int = 0, # >1 for smoothing
-        velocity_threshold_deg_per_s: float = 300, # deg/s
-        acceleration_threshold_deg_per_s2: float = 8, # deg/s^2
-        min_length_deg: float = 3.0,
-        min_latency_ms: float = 10,
-        min_duration_ms: float = 5.0, 
-        max_duration_ms: float = 90.0,
+        max_time_ms: float = 2000,
+        target_locations: list = [],
+        thres_fac: int = 10, # lambda, velocity criterion, usu 5,10,15,20 (higher is more conservative)        
+        above_thres_needed: int = 3, # k, usu 1,2,3,4 (higher is more conservative)
+        restrict_dir_min: int = 0, # direction restriction in degrees
+        restrict_dir_max: int = 0, # direction restriction in degrees
+        samp_rate: int = 0,
         saccades_name: str = "saccades",
         saccades_category: str = "saccades",
-        debug_plot: bool = True,
-        debug_plot_pause_s: int = 2
+        broken_fixation_name: str = "bf",
+        broken_fixation_category: str = "id",
     ) -> None:
         self.max_saccades = max_saccades
         self.center_at_fp = center_at_fp
         self.x_buffer_name = x_buffer_name
         self.y_buffer_name = y_buffer_name
         self.fp_off_name = fp_off_name
-        self.all_off_name = all_off_name
         self.fp_x_name = fp_x_name
         self.fp_y_name = fp_y_name
         self.max_time_ms = max_time_ms
-        self.sample_rate_hz = sample_rate_hz
-        self.position_smoothing_kernel_size_ms = position_smoothing_kernel_size_ms
-        self.velocity_smoothing_kernel_size_ms = velocity_smoothing_kernel_size_ms
-        self.acceleration_smoothing_kernel_size_ms = acceleration_smoothing_kernel_size_ms
-        self.velocity_threshold_deg_per_s = velocity_threshold_deg_per_s
-        self.acceleration_threshold_deg_per_s2 = acceleration_threshold_deg_per_s2
-        self.min_length_deg = min_length_deg
-        self.min_latency_ms = min_latency_ms
-        self.min_duration_ms = min_duration_ms
-        self.max_duration_ms = max_duration_ms
+        self.target_locations = target_locations
         self.saccades_name = saccades_name
         self.saccades_category = saccades_category
-        self.debug_plot_pause_s = debug_plot_pause_s
-        
-        if debug_plot:
-            # turn on interactive mode and set up axes
-            self.fig, self.axs = plt.subplots(4)
-            plt.ion()
-        else:
-            self.fig = None
+        self.broken_fixation_name = broken_fixation_name
+        self.broken_fixation_category = broken_fixation_category
+
+        # Setup saccade detector
+        self.saccade_detector = online_sac_detect()
+        self.saccade_detector.set_parameters(thres_fac, above_thres_needed, 
+                               restrict_dir_min, restrict_dir_max, samp_rate)        
 
     def enhance(self, trial: Trial, trial_number: int, experiment_info: dict, subject_info: dict) -> None:
 
         # Use trial.get_one() to get the time of the first occurence of the named "time" event.
         fp_off_time = trial.get_one(self.fp_off_name)
-        all_off_time = trial.get_one(self.all_off_name)
 
         # Use trial.signals for gaze signal chunks.
         x_signal = trial.signals[self.x_buffer_name]
@@ -314,145 +397,64 @@ class SaccadesEnhancer(TrialEnhancer):
 
         # Possibly center at fp
         if self.center_at_fp is True:
-            x_signal.apply_offset_then_gain(-x_signal.copy_time_range(fp_off_time, fp_off_time).get_channel_values(), 1)
-            y_signal.apply_offset_then_gain(-y_signal.copy_time_range(fp_off_time, fp_off_time).get_channel_values(), 1)
+            x_signal.apply_offset_then_gain(x_signal.copy_time_range(fp_off_time, fp_off_time).get_channel_values(), 1)
+            y_signal.apply_offset_then_gain(y_signal.copy_time_range(fp_off_time, fp_off_time).get_channel_values(), 1)
 
-        # Get x,y data from fp_off to all_off
-        x_position = x_signal.copy_time_range(fp_off_time, all_off_time).get_channel_values()
-        y_position = y_signal.copy_time_range(fp_off_time, all_off_time).get_channel_values()
+        # Clear and then add all of the data to the saccade detector
+        self.saccade_detector.reset_data()
+        self.saccade_detector.add_data(
+            x_signal.copy_time_range(fp_off_time, fp_off_time + self.max_time_ms).get_channel_values(),
+            y_signal.copy_time_range(fp_off_time, fp_off_time + self.max_time_ms).get_channel_values(),
+            y_signal.copy_time_range(fp_off_time, fp_off_time + self.max_time_ms).get_sample_times())
+                            
+        # Keep running the detector until if/when we get the saccade we're looking for
+        saccade_countdown = self.max_saccades
+        while saccade_countdown > 0
 
-        # Possibly smooth position
-        if self.position_smoothing_kernel_size_ms > 0:
-            kernel_width = self.position_smoothing_kernel_size_ms*self.sample_rate_hz/1000.0 # convert to samples
-            x_position = gaussian_filter1d(x_position, kernel_width)
-            y_position = gaussian_filter1d(y_position, kernel_width)
+            # Run the detector
+            res_here, run_time_here = self.saccade_detector.run_detection()
 
-        # Compute instantaneous velocity
-        dx = np.diff(x_position)
-        dy = np.diff(y_position)
-        distance = np.sqrt(dx**2 + dy**2)
-        velocity = distance*self.sample_rate_hz
-
-        # Possibly smooth velocity
-        if self.velocity_smoothing_kernel_size_ms > 0:
-            kernel_width = self.velocity_smoothing_kernel_size_ms*self.sample_rate_hz/1000.0 # convert to samples
-            velocity = gaussian_filter1d(velocity, kernel_width)
-
-        # Compute instantaneous acceleration
-        acceleration = np.concatenate([[0], np.diff(velocity)])
-
-        # Possibly smooth acceleration
-        if self.acceleration_smoothing_kernel_size_ms > 0:
-            kernel_width = self.acceleration_smoothing_kernel_size_ms*self.sample_rate_hz/1000.0 # convert to samples
-            acceleration = gaussian_filter1d(acceleration, kernel_width)
-        
-        # Look for saccades
-        num_samples = len(distance)
-        sample_index = 0
-        saccades = []
-        while (sample_index < num_samples) and (len(saccades) < self.max_saccades):
-
-            # Reset indices
-            start_index = -1
-            end_index = -1
-
-            # Check for saccade, first try acceleration, then velocity treshold
-            if acceleration[sample_index] >= self.acceleration_threshold_deg_per_s2:
+            # Check the result
+            if res_here.sac_detected is True:
                 
-                # Crossed acceleration threshold
-                start_index = sample_index
+                # If targets are given, 
 
-                # Look for deceleration
-                while (sample_index < num_samples) and (acceleration[sample_index] > -self.acceleration_threshold_deg_per_s2):
-                    sample_index += 1
+            else:
+                saccade_countdown = 0
 
-                # Look for end of deceleration    
-                if (sample_index < num_samples) and ((acceleration[sample_index] <= -self.acceleration_threshold_deg_per_s2) or
-                                                     (velocity[sample_index] <= -self.velocity_threshold_deg_per_s)):
-                    end_index = sample_index
+        # Find the choice saccade
 
-            elif velocity[sample_index] >= self.velocity_threshold_deg_per_s:
+        # Placeholder: start a bogus "saccade" at fp_off_time, and end it 1 second later.
+        arbitrary_duration = 1.0
+        x_values = x_signal.copy_time_range(fp_off_time, fp_off_time + arbitrary_duration).get_channel_values()
+        x_start = x_values[0]
+        x_end = x_values[-1]
+        y_values = y_signal.copy_time_range(fp_off_time, fp_off_time + arbitrary_duration).get_channel_values()
+        y_start = y_values[0]
+        y_end = y_values[-1]
 
-                # Crossed velocity threshold
-                start_index = sample_index
+        x_displacement = x_end - x_start
+        y_displacement = y_end - y_start
+        raw_distance = math.sqrt(x_displacement ** 2 + y_displacement ** 2)
 
-                # Look for slowing
-                while (sample_index < num_samples) and (velocity[sample_index] >= self.velocity_threshold_deg_per_s):
-                    sample_index += 1
-                
-                # Look for end of super-threshold velocity     
-                if (sample_index < num_samples) and (velocity[sample_index] <= -self.velocity_threshold_deg_per_s):
-                    end_index = sample_index
+        # Represent each saccade as a dictionary that has certain keys by convention.
+        example_saccade = {
+             "t_start": fp_off_time,
+             "t_end": fp_off_time + arbitrary_duration,
+             "v_max": raw_distance / arbitrary_duration,
+             "v_avg": raw_distance / arbitrary_duration,
+             "x_start": x_start,
+             "y_start": y_start,
+             "x_end": x_end,
+             "y_end": y_end,
+             "raw_distance": raw_distance,
+             "vector_distance": 1,
+        }
 
-            # Check if we found something
-            if (start_index != -1) and (end_index != 1):
-
-                # Get start/end times wrt fixation onset
-                sac_start_time = fp_off_time + (start_index+1)/self.sample_rate_hz*1000
-                sac_end_time = fp_off_time + (end_index+1)/self.sample_rate_hz*1000
-                sac_duration = sac_end_time - sac_start_time
-
-                # Saccade distance
-                sac_length = np.sqrt(
-                    (x_position[end_index+1] - x_position[start_index+1])**2 + 
-                    (y_position[end_index+1] - y_position[start_index+1])**2)
-                
-                if ((sac_length >= self.min_length_deg) and
-                    (sac_duration >= self.min_duration_ms) and
-                    (sac_duration >= self.min_duration_ms) and
-                    (sac_start_time >= self.min_latency_ms)):
-
-                    # Save the saccade as a dictionary in the list of saccades
-                    saccades.append({
-                        "t_start": sac_start_time,
-                        "t_end": sac_end_time,
-                        "v_max": np.max(velocity[start_index:end_index]),
-                        "v_avg": sac_length / sac_duration,
-                        "x_start": x_position[start_index+1],
-                        "y_start": y_position[start_index+1],
-                        "x_end": x_position[end_index+1],
-                        "y_end": y_position[end_index+1],
-                        "raw_distance": np.sum(velocity[start_index:end_index])/self.sample_rate_hz*1000,
-                        "vector_distance": sac_length,
-                    })
-
-            # Update index
-            sample_index += 1
-
-        # Add the list of saccade dictionaries to trial enhancements.
+        # Maybe produce a list of saccade dictionaries.
+        # Lists of dicts can be added directly to trial enhancements.
+        saccades = [example_saccade]
         trial.add_enhancement(self.saccades_name, saccades, self.saccades_category)
 
-        if self.fig is not None:
-            times = x_signal.copy_time_range(fp_off_time, all_off_time).get_times()
-            times = times - times[0]
-            self.axs[0].cla()
-            self.axs[0].plot(times, x_position, 'r-')
-            self.axs[0].plot(times, y_position, 'b-')
-            self.axs[0].set_xlim([0, 2])
-            self.axs[0].set_ylim([-30, 30])
-            self.axs[1].cla()
-            self.axs[1].plot(times, np.sqrt(x_position**2+y_position**2))
-            self.axs[1].plot(times, np.zeros_like(times)+10, 'k--')
-            self.axs[1].set_xlim([0, 2])
-            self.axs[1].set_ylim([0, 20])
-
-            for sac in saccades:
-                #print(sac)
-                self.axs[1].plot([sac["t_start"]/1000, sac["t_start"]/1000], [0, 20], 'g-')
-                self.axs[1].plot([sac["t_end"]/1000, sac["t_end"]/1000], [0, 20], 'r-')
-
-            self.axs[2].cla()
-            self.axs[2].plot(times[:-1], velocity)
-            self.axs[2].plot(times[:-1], np.zeros_like(times[:-1])+self.velocity_threshold_deg_per_s, 'k--')
-            self.axs[2].set_xlim([0, 2])
-            self.axs[2].set_ylim([0, 800])
-            self.axs[3].cla()
-            self.axs[3].plot(times[:-1], acceleration)
-            self.axs[3].plot(times[:-1], np.zeros_like(times[:-1])+self.acceleration_threshold_deg_per_s2, 'k--')
-            self.axs[3].plot(times[:-1], np.zeros_like(times[:-1])-self.acceleration_threshold_deg_per_s2, 'k--')
-            self.axs[3].set_xlim([0, 2])
-            self.axs[3].set_ylim([-25, 25])
-
-            plt.pause(self.debug_plot_pause_s)
-            self.fig.canvas.draw_idle()
-            self.fig.canvas.flush_events()
+        # The same enhancer can also annotate broken fixation or not.
+        trial.add_enhancement(self.broken_fixation_name, False, self.broken_fixation_category)

@@ -64,6 +64,9 @@ class SignalChunk(BufferData):
 
         if end_time is None:
             head_selector = True
+        elif end_time == start_time:
+            head_selector = [False]*sample_times.size
+            head_selector[next((i for i, x in enumerate(tail_selector) if x), None)] = True
         else:
             head_selector = sample_times < end_time
 
@@ -74,6 +77,7 @@ class SignalChunk(BufferData):
             range_first_sample_time = sample_times[rows_in_range][0]
         else:
             range_first_sample_time = None
+
         return SignalChunk(
             range_sample_data,
             self.sample_frequency,

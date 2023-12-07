@@ -314,14 +314,22 @@ class TrialExtractor():
             trial.wrt_time = 0.0
 
         for name, buffer in self.named_buffers.items():
+            start_time = buffer.reference_time_to_raw(trial.start_time)
+            end_time = buffer.reference_time_to_raw(trial.end_time)
             data = buffer.data.copy_time_range(
-                buffer.reference_time_to_raw(trial.start_time),
-                buffer.reference_time_to_raw(trial.end_time)
-            )
+                start_time, end_time)
             raw_wrt_time = buffer.reference_time_to_raw(trial.wrt_time)
+            '''if name == 'gaze_x':
+                print(f'start={start_time}, start sample time = {data.first_sample_time}, end={end_time}, wrt={raw_wrt_time}')
+                times = data.get_times()
+                values = data.get_channel_values()
+                print(times[1:10])
+                print(values[1:10])
+            '''
             data.shift_times(-raw_wrt_time)
             trial.add_buffer_data(name, data)
 
+        # print(f'start time = {trial.start_time:.4f}, end time = {trial.end_time:.4f}, wrt = {trial.wrt_time:.4f}, raw wrt = {raw_wrt_time:.4f}')            
         self.apply_enhancers(self.enhancers, "enhance", trial, trial_number, experiment_info, subject_info)
         self.apply_enhancers(self.collecters, "collect", trial, trial_number, experiment_info, subject_info)
 
