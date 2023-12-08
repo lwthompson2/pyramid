@@ -263,7 +263,7 @@ class PyramidContext():
         self.revise_trials(trial_file)
 
     def revise_trials(self, original_trial_file: str, trial_log_mod: int = 50):
-        """Reprocess the trial file to apply collected data or stats, and revise each trial."""
+        """Reprocess the trial file to apply collected data ortrial_log_mod stats, and revise each trial."""
 
         if not self.trial_extractor.collecters:
             logging.info(f"No collecters to revise trials, all done.")
@@ -277,7 +277,7 @@ class PyramidContext():
                 with TrialFile.for_file_suffix(original_trial_file) as reader:
                     for trial_index, trial in enumerate(reader.read_trials()):
                         trial_count = trial_index + 1
-                        if trial_count % trial_log_mod == 0:
+                        if trial_count % trial_log_mod == 0:  # pragma: no cover
                             logging.info(f"Revised {trial_count} trials.")
                         self.trial_extractor.revise_trial(trial, trial_index, self.experiment, self.subject)
                         writer.append_trial(trial)
