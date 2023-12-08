@@ -570,7 +570,7 @@ class PlexonPlxReader(Reader):
                 initial[name] = SignalChunk(
                     sample_data=np.empty([0, 1], dtype=np.float64),
                     sample_frequency=float(peek_reader.frequency_per_slow_channel[channel_id]),
-                    first_sample_time=float(0.0),
+                    first_sample_time=None,
                     channel_ids=[int(channel_id)]
                 )
 

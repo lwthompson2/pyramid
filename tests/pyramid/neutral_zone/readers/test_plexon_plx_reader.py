@@ -45,6 +45,12 @@ def test_default_to_all_channels(fixture_path):
     assert isinstance(initial["signal_FP01"], SignalChunk)
     assert isinstance(initial["signal_FP16"], SignalChunk)
 
+    # First sample time None means wait for actual data to choose the first time.
+    # This is necessary when the first sample time is not zero!
+    for data in initial.values():
+        if isinstance(data, SignalChunk):
+            assert data.first_sample_time is None
+
 
 def test_read_whole_plx_file_one_block_at_a_time(fixture_path):
     plx_file = Path(fixture_path, "plexon", "16sp_lfp_with_2coords.plx")
