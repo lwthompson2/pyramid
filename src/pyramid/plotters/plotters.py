@@ -102,11 +102,6 @@ class PlotFigureController(ContextManager):
         # Use matplotlib in interactive mode instead of blocking on calls like plt.show().
         plt.ion()
 
-        # Prefer the Python "tkinter" backend over the "MacOSX" backend,
-        # so we can position and resize figure windows.
-        if get_backend() == 'MacOSX':  # pragma: no cover
-            use("TkAgg")
-
         # Create a managed figure for each plotter to use.
         self.figures = {plotter: plt.figure() for plotter in self.plotters}
 
