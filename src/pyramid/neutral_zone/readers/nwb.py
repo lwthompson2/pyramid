@@ -26,6 +26,7 @@ class NwbNumericEventReader(Reader):
     def __init__(
         self,
         nwb_file: str = None,
+        stream_name: str = None,
         file_finder: FileFinder = FileFinder(),
         result_name: str = "events",
         sample_frequency = 0,
@@ -37,6 +38,7 @@ class NwbNumericEventReader(Reader):
         self.sample_frequency = sample_frequency
         self.file_stream = None
         self.nwb_reader = None
+        self.stream_name = stream_name
 
     def __eq__(self, other: object) -> bool:
         """Compare NWB readers field-wise, to support use of this class in tests."""
@@ -46,6 +48,7 @@ class NwbNumericEventReader(Reader):
                 and self.nwb_file == other.nwb_file
                 and self.result_name == other.result_name
                 and self.fmtparams == other.fmtparams
+                and self.stream_name == other.stream_name
             )
         else:  # pragma: no cover
             return False
@@ -64,12 +67,24 @@ class NwbNumericEventReader(Reader):
 
     def get_initial(self) -> dict[str, BufferData]:
         self.line_num = -1
+        logging.info(f"Found session file, loading...")
         session = Session(self.nwb_file)
+        logging.info(f"Complete")
         recording = session.recordnodes[0].recordings[0] # Assuming a single record node and single recording that day
-        self.nwb_reader = recording.events # should be pandas dataframe already
+        self.nwb_reader = recording.events.loc[recording.events['stream_name'] == self.stream_name] # should be pandas dataframe already
+        self.nwb_reader.reset_index(drop=True, inplace=True) # This is necessary when "slicing a dataframe", otherwise the indices will all be the original #s
         self.total_lines = self.nwb_reader.shape[0]
         if self.nwb_reader['timestamp'][0] < 0:
             self.nwb_reader['timestamp'] = (self.nwb_reader['sample_number'] - min(self.nwb_reader['sample_number']))*(1/self.sample_frequency)
+        # NEW LWT 3/21/24
+        all_states = np.array(self.nwb_reader['state'])
+        diffs = np.diff(all_states) != 0 # Find all bit transitions
+        self.indexes = np.nonzero(diffs)[0]+1 # Add one to get index of transitions
+        self.byteSampNum = []
+        self.total_changes = len(self.indexes)+1
+        self.ith_change = -1
+        
+        
         return {
             self.result_name: NumericEventList(np.empty([0, 2]))
         }
@@ -86,64 +101,78 @@ class NwbNumericEventReader(Reader):
         3) second y bits
         4) all bits zeroed
         """
-
-        first_byte = [0] * 8
-        second_byte = [0] * 8
+        first_byte = 0
+        second_byte = 0
         event_int = []
         event_times = []
         step = 'first_byte'
         got_event = 0
         first_pass = 1
-
-        while not(got_event) and (self.line_num <= (self.total_lines-2)):
-            self.line_num += 1 # next row
-            lines = self.nwb_reader['line'][self.line_num] - 1 # Bit line# to index
-            states = self.nwb_reader['state'][self.line_num]
-            samp_time = self.nwb_reader['timestamp'][self.line_num]
-
-            if step == 'first_byte':
-                if states:
-                    if sum(first_byte) == 0:
-                        first_pass = 0
-                        first_byte_time = samp_time
-                    first_byte[lines] = states
-                else:
-                    byte1 = first_byte.copy()
-                    try: event_times = first_byte_time
-                    except NameError: event_times = None
-                    first_byte[lines] = states
-                    step = "first_zero"
-            elif step == 'first_zero':
-                if not states:
-                    first_byte[lines] = states
-                else:
-                    if sum(first_byte) > 0:
-                        print('first zero complete, but the first byte has not been reset, skipping sample')
+        samp_num_diff = 0
+        line_state_diff = 0
+        line_num_diff = 0
+        while not(got_event) and (self.ith_change <= (self.total_changes)):
+            self.ith_change += 1
+            byteInt = []
+            byteTime = []
+            byteSampNum = []
+            current_byte = np.array([0] * 8)
+            if self.ith_change == 0:
+                lines = self.nwb_reader.line.to_numpy()[:self.indexes[self.ith_change]] - 1 # Bit line# to index
+                states = self.nwb_reader.state.to_numpy()[:self.indexes[self.ith_change]]
+                samp_time = self.nwb_reader.timestamp.to_numpy()[:self.indexes[self.ith_change]]
+                samp_num = self.nwb_reader.sample_number.to_numpy()[:self.indexes[self.ith_change]]
+            elif self.ith_change < (self.total_changes-1):
+                lines = self.nwb_reader.line.to_numpy()[self.indexes[self.ith_change-1]:self.indexes[self.ith_change]] - 1 # Bit line# to index
+                states = self.nwb_reader.state.to_numpy()[self.indexes[self.ith_change-1]:self.indexes[self.ith_change]]
+                samp_time = self.nwb_reader.timestamp.to_numpy()[self.indexes[self.ith_change-1]:self.indexes[self.ith_change]]
+                samp_num = self.nwb_reader.sample_number.to_numpy()[self.indexes[self.ith_change-1]:self.indexes[self.ith_change]]
+            else:
+                # Last chunk or perhaps single bit
+                lines = self.nwb_reader.line.to_numpy()[self.indexes[self.ith_change-1]:] - 1 # Bit line# to index
+                states = self.nwb_reader.state.to_numpy()[self.indexes[self.ith_change-1]:]
+                samp_time = self.nwb_reader.timestamp.to_numpy()[self.indexes[self.ith_change-1]:]
+                samp_num = self.nwb_reader.sample_number.to_numpy()[self.indexes[self.ith_change-1]:]
+            if states[0] == 0:
+                continue
+            else:
+                # Assign the byte and do some checks:
+                current_byte[lines] = states
+                if len(self.byteSampNum) > 1:
+                    # Check for a reasonable inter-sample interval for the bytes
+                    if (np.min(samp_num) - self.byteSampNum[-1])<150:
+                        print('Invalid inter-sample interval timing, skipping')
                         continue
-                    second_byte[lines] = states
-                    second_byte_time = samp_time
-                    step = 'second_byte'
-            elif step == 'second_byte':
-                if states:
-                    second_byte[lines] = states
-                else:
-                    byte2 = second_byte.copy()
-                    second_byte[lines] = states
-                    step = "second_zero"
-                    byte1Int = int(''.join(map(str, reversed(byte1))), 2)
-                    byte2Int = int(''.join(map(str, reversed(byte2))), 2)
-                    event_int = ((byte1Int & 127) << 7) | (byte2Int & 127)      
-            elif step == 'second_zero':
-                if not states:
-                    second_byte[lines] = states
-                else:
-                    if sum(second_byte) > 0:
-                        print('second zero "complete", but the second byte has not been reset, skipping sample')
+                elif current_byte[-1] != 1:
+                    # Check that the byte contains a strobe signal
+                    print('Invalid byte, no strobe, skipping')
+                    continue
+                elif np.sum(current_byte) == 1:
+                    # This indicates that the only active bit is the strobe, which if triggered accidentally will fuck everything up.
+                    # so we check if the next sample immediately zeros the bit, indicating it was an unlikely event.
+                    next_samp_num = self.nwb_reader.sample_number.to_numpy()[self.indexes[self.ith_change]]
+                    if (next_samp_num - samp_num[-1]) == 1:
+                        print('Likely false strobe signal, skipping')
+                        continue
+                # Initial checks okay
+                byteInt.append(int(''.join(map(str, reversed(current_byte))), 2))
+                byteTime.append(np.min(samp_time))
+                byteSampNum.append(np.max(samp_num))
+                if step == 'first_byte':
+                    if byteInt[0] > 206:
+                        print('Invalid first byte: exceeds maximum possible integer, skipping')
                         continue
                     else:
-                        # everything is complete, the next iteration should start on the current line since an active state was reported 
-                        got_event = 1
-                        self.line_num -= 1
+                        first_byte = byteInt[0]
+                        self.byteSampNum.append(byteSampNum[0]) 
+                        event_times.append(byteTime[0])
+                        current_byte = np.array([0] * 8)
+                        step = 'second_byte'
+                else:
+                    second_byte = byteInt[0]
+                    self.byteSampNum.append(byteSampNum[0])
+                    event_int.append(((int(first_byte) & 127) << 7) | (int(second_byte) & 127))
+                    got_event = 1   
         if got_event:
             try:
                 return {
@@ -152,7 +181,7 @@ class NwbNumericEventReader(Reader):
             except ValueError as error:
                 logging.info(f"Error reading nwb events file because {error.args}, line: {self.line_num-1}")
                 return None
-        elif self.line_num == self.total_lines-1:
+        elif self.ith_change == self.self.total_changes:
             raise StopIteration
         else:
             logging.info(f"End of event buffer or empty event, returning default: None")
@@ -220,7 +249,9 @@ class NwbContinuousReader(Reader):
 
     def get_initial(self) -> dict[str, BufferData]:
         self.line_num = 0
+        logging.info(f"Found session file, loading...")
         session = Session(self.nwb_file)
+        logging.info(f"Complete")
         recording = session.recordnodes[0].recordings[0] # Assuming a single record node and single recording that day
         # Get the appropriate data stream
         for i in np.arange(len(recording.continuous)): 
