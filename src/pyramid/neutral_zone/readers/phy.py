@@ -86,6 +86,7 @@ class PhyClusterEventReader(Reader):
         self.spike_clusters = None
         self.sample_rate = None
         self.clusters_to_keep = None
+        self.offset = 0.0
 
     def __enter__(self) -> Self:
         # Start reading spikes and clusters at the beginning.
@@ -99,6 +100,8 @@ class PhyClusterEventReader(Reader):
                 (name, value) = line.split("=")
                 if name.strip() == self.sample_rate_param_name:
                     self.sample_rate = float(value.strip())
+                if name.strip() == 'offset':
+                    self.offset = float(value.strip())
 
         if self.sample_rate is None:  # pragma: no cover
             raise ValueError(f"Params file {self.params_file} has no entry for {self.sample_rate_param_name}.")
@@ -155,7 +158,7 @@ class PhyClusterEventReader(Reader):
 
         # Read the next increment of spike times and corresponding cluster ids.
         until_row = min(self.spikes_times.size, self.current_row + self.rows_per_read)
-        times = self.spikes_times[self.current_row:until_row] / self.sample_rate
+        times = (self.spikes_times[self.current_row:until_row] / self.sample_rate) + self.offset
         clusters = self.spike_clusters[self.current_row:until_row]
         self.current_row = until_row
 
