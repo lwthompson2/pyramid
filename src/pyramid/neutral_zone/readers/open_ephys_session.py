@@ -66,14 +66,16 @@ class OpenEphysSessionSignalReader(Reader):
         self.result_name = result_name
         self.samples_per_chunk = samples_per_chunk
 
-        # Pick a continuous data object by name.
         if self.stream_name is None:
             self.continuous = self.session.recording.continuous[0]
         else:
-            for continuous in self.session.recording.continuous:
-                if continuous.metadata["stream_name"] == self.stream_name:
-                    self.continuous = continuous
-                    break
+            # Pick a continuous data object by name.
+            # Using recording.continuous runs "LOAD_CONTINUOUS" (NWBRECORDING.PY), which will load all continuous streams.
+            datasets = list(self.session.recording.nwb["acquisition"].keys())
+            for index, item in enumerate(datasets):
+                if self.stream_name in item and "TTL" not in item:
+                    self.continuous = self.session.recording.Continuous(self.session.recording.nwb, item)
+                    break  # Stop at the first match
 
         # Pick a set of channels to keep, by name.
         if "channel_names" in self.continuous.metadata:

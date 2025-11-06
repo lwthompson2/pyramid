@@ -94,6 +94,12 @@ class PhyClusterEventReader(Reader):
         self.spikes_times = np.load(self.spike_times_file, mmap_mode="r")
         self.spike_clusters = np.load(self.spike_clusters_file, mmap_mode="r")
 
+        # There are differences between spike interface and phy sometimes returning 1D vs 2D arrays.
+        if self.spike_times.ndim == 1:
+            self.spiketimes.reshape((-1, 1))
+        if self.spike_clusters.ndim == 1:
+            self.spike_clusters.reshape((-1, 1)) 
+
         # Parse the spike sample rate to convert samples to seconds.
         with open(self.params_file, "r") as f:
             for line in f:
