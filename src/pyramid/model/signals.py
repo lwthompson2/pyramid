@@ -1,3 +1,10 @@
+from typing import Any, Self, Iterator
+from dataclasses import dataclass
+import numpy as np
+
+from pyramid.model.model import BufferData
+
+
 @dataclass
 class SignalTimeChunk(BufferData):
     """Wrap a 2D array with a chunk of signal data where rows are samples and columns are channels, with explicit timestamps for each sample."""
@@ -141,13 +148,6 @@ class SignalTimeChunk(BufferData):
     def each(self) -> Iterator[tuple[float, list[float]]]:
         return ((time, self.sample_data[index, :]) for index, time in enumerate(self.timestamps))
     
-    
-from typing import Any, Self, Iterator
-from dataclasses import dataclass
-import numpy as np
-
-from pyramid.model.model import BufferData
-
 
 @dataclass
 class SignalChunk(BufferData):
