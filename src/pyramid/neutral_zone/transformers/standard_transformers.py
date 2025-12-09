@@ -4,7 +4,7 @@ import numpy as np
 
 from pyramid.model.model import BufferData
 from pyramid.model.events import NumericEventList, TextEventList
-from pyramid.model.signals import SignalChunk
+from pyramid.model.signals import SignalChunk, SignalTimeChunk
 from pyramid.neutral_zone.transformers.transformers import Transformer
 
 
@@ -30,7 +30,7 @@ class OffsetThenGain(Transformer):
     def transform(self, data: BufferData) -> BufferData:
         if isinstance(data, NumericEventList):
             data.apply_offset_then_gain(self.offset, self.gain, self.value_id)
-        elif isinstance(data, SignalChunk):
+        elif isinstance(data, (SignalChunk, SignalTimeChunk)):
             data.apply_offset_then_gain(self.offset, self.gain)
         else:  # pragma: no cover
             logging.warning(f"OffsetThenGain doesn't know how to apply to {data.__class__.__name__}")

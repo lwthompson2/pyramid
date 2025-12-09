@@ -4,7 +4,7 @@ import logging
 
 from pyramid.model.model import DynamicImport, Buffer, BufferData
 from pyramid.model.events import NumericEventList, TextEventList
-from pyramid.model.signals import SignalChunk
+from pyramid.model.signals import SignalChunk, SignalTimeChunk
 
 
 @dataclass
@@ -26,8 +26,8 @@ class Trial():
     text_events: dict[str, TextEventList] = field(default_factory=dict)
     """Named lists of text events assigned to this trial."""
 
-    signals: dict[str, SignalChunk] = field(default_factory=dict)
-    """Named signal chunks assigned to this trial."""
+    signals: dict[str, SignalChunk | SignalTimeChunk] = field(default_factory=dict)
+    """Named signal chunks (SignalChunk or SignalTimeChunk) assigned to this trial."""
 
     enhancements: dict[str, Any] = field(default_factory=dict)
     """Name-data pairs, to add to the trial."""
@@ -43,7 +43,7 @@ class Trial():
         elif isinstance(data, TextEventList):
             self.text_events[name] = data
             return True
-        elif isinstance(data, SignalChunk):
+        elif isinstance(data, (SignalChunk, SignalTimeChunk)):
             self.signals[name] = data
             return True
         else:

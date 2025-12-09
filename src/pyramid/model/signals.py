@@ -148,6 +148,23 @@ class SignalTimeChunk(BufferData):
     def each(self) -> Iterator[tuple[float, list[float]]]:
         return ((time, self.sample_data[index, :]) for index, time in enumerate(self.timestamps))
     
+    def apply_offset_then_gain(self, offset: float = 0, gain: float = 1, channel_id: str | int = None) -> None:
+    """Transform sample data by a constant gain and offset.
+
+    Uses a convention of applying offset first, then gain.
+
+    By default this modifies samples on all channels.
+    Pass in a channel_id to select one specific channel.
+
+    This modifies the sample_data in place.
+    """
+    if channel_id is None:
+        channel_index = slice(None)
+    else:
+        channel_index = self.channel_index(channel_id)
+    self.sample_data[:, channel_index] += offset
+    self.sample_data[:, channel_index] *= gain
+    
 
 @dataclass
 class SignalChunk(BufferData):
