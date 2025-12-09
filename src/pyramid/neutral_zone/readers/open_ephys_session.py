@@ -4,12 +4,13 @@ from collections import namedtuple
 
 import numpy as np
 from open_ephys.analysis import Session
-
+from scipy.signal import butter
 from pyramid.file_finder import FileFinder
 from pyramid.model.model import BufferData
 from pyramid.model.events import NumericEventList, TextEventList
 from pyramid.model.signals import SignalChunk
 from pyramid.neutral_zone.readers.readers import Reader
+from pyramid.model.signals import SignalTimeChunk
 
 
 class OpenEphysSession():
@@ -282,4 +283,121 @@ class OpenEphysSessionTextEventReader(Reader):
         text_data = np.array([next.message], dtype=np.str_)
         return {
             self.result_name: TextEventList(timestamp_data, text_data)
+        }
+
+class OpenEphysSessionTimeSeriesReader(Reader):
+    """Read continuous time series data from an Open Ephys session, returning all sample timestamps in each chunk as NumericEventList, with optional Butterworth filtering."""
+
+    def __init__(
+        self,
+        session_dir: str,
+        file_finder: FileFinder = FileFinder(),
+        stream_name: str = None,
+        channel_names: list[str] = None,
+        record_node_index: int = -1,
+        recording_index: int = -1,
+        result_name: str = None,
+        samples_per_chunk: int = 10000,
+        low_cut: float = None,
+        high_cut: float = None,
+        filter_order: int = 4
+    ) -> None:
+        self.session = OpenEphysSession(file_finder.find(session_dir), record_node_index, recording_index)
+        self.stream_name = stream_name
+        self.channel_names = channel_names
+        self.result_name = result_name
+        self.samples_per_chunk = samples_per_chunk
+        self.low_cut = low_cut
+        self.high_cut = high_cut
+        self.filter_order = filter_order
+        self._filter_b = None
+        self._filter_a = None
+
+        if self.stream_name is None:
+            self.continuous = self.session.recording.continuous[0]
+        else:
+            datasets = list(self.session.recording.nwb["acquisition"].keys())
+            for item in datasets:
+                if self.stream_name in item and "TTL" not in item:
+                    self.continuous = self.session.recording.Continuous(self.session.recording.nwb, item)
+                    break
+
+        if "channel_names" in self.continuous.metadata:
+            all_names = self.continuous.metadata["channel_names"]
+        else:
+            all_names = [f"CH{index+1}" for index in range(self.continuous.metadata['num_channels'])]
+        if self.channel_names is None:
+            self.channel_ids = all_names
+            self.channel_indexes = list(range(self.continuous.metadata['num_channels']))
+        else:
+            self.channel_ids = self.channel_names
+            self.channel_indexes = [all_names.index(name) for name in self.channel_names]
+
+        if self.result_name is None:
+            self.result_name = self.continuous.metadata["stream_name"]
+
+        self.total_samples = self.continuous.sample_numbers.size
+        self.next_sample = None
+
+        # Setup filter if needed
+        if self.low_cut is not None or self.high_cut is not None:
+            nyq = 0.5 * self.continuous.metadata['sample_rate']
+            wp = []
+            if self.low_cut is not None:
+                wp.append(self.low_cut / nyq)
+            else:
+                wp.append(0)
+            if self.high_cut is not None:
+                wp.append(self.high_cut / nyq)
+            else:
+                wp.append(1)
+            if self.low_cut is not None and self.high_cut is not None:
+                btype = 'bandpass'
+            elif self.low_cut is not None:
+                btype = 'highpass'
+            else:
+                btype = 'lowpass'
+            self._filter_b, self._filter_a = butter(self.filter_order, wp, btype=btype)
+
+    def __enter__(self) -> Self:
+        self.next_sample = 0
+        return self
+
+    def __exit__(
+        self,
+        __exc_type: type[BaseException] | None,
+        __exc_value: BaseException | None,
+        __traceback: TracebackType | None
+    ) -> bool | None:
+        self.next_sample = None
+        return None
+
+    def get_initial(self) -> dict[str, BufferData]:
+        return {
+            self.result_name: SignalTimeChunk.empty(channel_ids=self.channel_ids, sample_frequency=self.continuous.metadata['sample_rate'])
+        }
+
+    def read_next(self) -> dict[str, BufferData]:
+        if self.next_sample >= self.total_samples:
+            raise StopIteration
+
+        end_sample = min(self.next_sample + self.samples_per_chunk, self.total_samples)
+        chunk_timestamps = self.continuous.timestamps[self.next_sample:end_sample]
+        samples = self.continuous.get_samples(self.next_sample, end_sample, self.channel_indexes)
+
+        # Apply Butterworth filter if specified
+        if self._filter_b is not None and self._filter_a is not None:
+            from scipy.signal import filtfilt
+            for i in range(samples.shape[1]):
+                samples[:, i] = filtfilt(self._filter_b, self._filter_a, samples[:, i])
+
+        self.next_sample += samples.shape[0]
+
+        return {
+            self.result_name: SignalTimeChunk(
+                sample_data=samples,
+                timestamps=chunk_timestamps,
+                sample_frequency=self.continuous.metadata['sample_rate'],
+                channel_ids=self.channel_ids
+            )
         }
