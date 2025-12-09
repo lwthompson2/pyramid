@@ -96,9 +96,9 @@ class PhyClusterEventReader(Reader):
 
         # There are differences between spike interface and phy sometimes returning 1D vs 2D arrays.
         if self.spikes_times.ndim == 1:
-            self.spikes_times.reshape((-1, 1))
+            self.spikes_times = self.spikes_times.reshape((-1, 1))
         if self.spike_clusters.ndim == 1:
-            self.spike_clusters.reshape((-1, 1)) 
+            self.spike_clusters = self.spike_clusters.reshape((-1, 1)) 
 
         # Parse the spike sample rate to convert samples to seconds.
         with open(self.params_file, "r") as f:

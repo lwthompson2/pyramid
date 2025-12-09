@@ -59,7 +59,7 @@ class NumericEventList(BufferData):
         """Implementing BufferData superclass."""
         self.event_data = np.concatenate([self.event_data, other.event_data])
 
-    def discard_before(self, start_time: float) -> None:
+    def discard_before(self, start_time: float) -> None:  
         """Implementing BufferData superclass."""
         rows_to_keep = self.event_data[:, 0] >= start_time
         self.event_data = self.event_data[rows_to_keep, :]
