@@ -306,7 +306,8 @@ class Hdf5TrialFile(TrialFile):
             else:
                 dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data)
             dataset.attrs["type"] = "SignalTimeChunk"
-            dataset.attrs["timestamps"] = signal_chunk.timestamps
+            # Store timestamps as a separate dataset
+            signals_group.create_dataset(f"{name}_timestamps", data=signal_chunk.timestamps, compression="gzip")
             if signal_chunk.sample_frequency is None:
                 dataset.attrs["sample_frequency"] = np.empty([0, 0])
             else:
@@ -337,7 +338,11 @@ class Hdf5TrialFile(TrialFile):
                 sample_frequency = None
             else:
                 sample_frequency = dataset.attrs["sample_frequency"]
-            timestamps = dataset.attrs["timestamps"]
+            # Load timestamps from the separate dataset
+            # The parent group is signals_group, so get the dataset by name
+            parent_group = dataset.parent
+            timestamps_ds_name = f"{dataset.name.split('/')[-1]}_timestamps"
+            timestamps = parent_group[timestamps_ds_name][()]
             return SignalTimeChunk(
                 sample_data=np.array(dataset[()]),
                 timestamps=np.array(timestamps),
