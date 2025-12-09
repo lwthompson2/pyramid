@@ -9,7 +9,7 @@ import h5py
 import numpy as np
 
 from pyramid.model.events import NumericEventList, TextEventList
-from pyramid.model.signals import SignalChunk
+from pyramid.model.signals import SignalChunk, SignalTimeChunk
 from pyramid.trials.trials import Trial
 
 
@@ -118,21 +118,43 @@ class JsonTrialFile(TrialFile):
             text_data=np.array(raw_dict["text_data"], dtype=np.str_)
         )
 
-    def dump_signal_chunk(self, signal_chunk: SignalChunk) -> dict:
-        return {
-            "signal_data": signal_chunk.sample_data.tolist(),
-            "sample_frequency": signal_chunk.sample_frequency,
-            "first_sample_time": signal_chunk.first_sample_time,
-            "channel_ids": signal_chunk.channel_ids
-        }
+    def dump_signal_chunk(self, signal_chunk) -> dict:
+        if isinstance(signal_chunk, SignalChunk):
+            return {
+                "type": "SignalChunk",
+                "signal_data": signal_chunk.sample_data.tolist(),
+                "sample_frequency": signal_chunk.sample_frequency,
+                "first_sample_time": signal_chunk.first_sample_time,
+                "channel_ids": signal_chunk.channel_ids
+            }
+        elif isinstance(signal_chunk, SignalTimeChunk):
+            return {
+                "type": "SignalTimeChunk",
+                "signal_data": signal_chunk.sample_data.tolist(),
+                "timestamps": signal_chunk.timestamps.tolist(),
+                "sample_frequency": signal_chunk.sample_frequency,
+                "channel_ids": signal_chunk.channel_ids
+            }
+        else:
+            raise TypeError(f"Unsupported signal chunk type: {type(signal_chunk)}")
 
-    def load_signal_chunk(self, raw_dict: dict) -> SignalChunk:
-        return SignalChunk(
-            sample_data=np.array(raw_dict["signal_data"]),
-            sample_frequency=raw_dict["sample_frequency"],
-            first_sample_time=raw_dict["first_sample_time"],
-            channel_ids=raw_dict["channel_ids"]
-        )
+    def load_signal_chunk(self, raw_dict: dict):
+        if raw_dict.get("type") == "SignalChunk":
+            return SignalChunk(
+                sample_data=np.array(raw_dict["signal_data"]),
+                sample_frequency=raw_dict["sample_frequency"],
+                first_sample_time=raw_dict["first_sample_time"],
+                channel_ids=raw_dict["channel_ids"]
+            )
+        elif raw_dict.get("type") == "SignalTimeChunk":
+            return SignalTimeChunk(
+                sample_data=np.array(raw_dict["signal_data"]),
+                timestamps=np.array(raw_dict["timestamps"]),
+                channel_ids=raw_dict["channel_ids"],
+                sample_frequency=raw_dict["sample_frequency"]
+            )
+        else:
+            raise TypeError(f"Unsupported signal chunk type: {raw_dict.get('type')}")
 
     def dump_trial(self, trial: Trial) -> dict:
         raw_dict = {
@@ -262,40 +284,68 @@ class Hdf5TrialFile(TrialFile):
             text_data=decoded_text
         )
 
-    def dump_signal_chunk(self, signal_chunk: SignalChunk, name: str, signals_group: h5py.Group) -> dict:
-        if signal_chunk.sample_data.size > 1:
-            dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data, compression="gzip")
+    def dump_signal_chunk(self, signal_chunk, name: str, signals_group: h5py.Group) -> dict:
+        if isinstance(signal_chunk, SignalChunk):
+            if signal_chunk.sample_data.size > 1:
+                dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data, compression="gzip")
+            else:
+                dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data)
+            dataset.attrs["type"] = "SignalChunk"
+            if signal_chunk.sample_frequency is None:
+                dataset.attrs["sample_frequency"] = np.empty([0, 0])
+            else:
+                dataset.attrs["sample_frequency"] = signal_chunk.sample_frequency
+            if signal_chunk.first_sample_time is None:
+                dataset.attrs["first_sample_time"] = np.empty([0, 0])
+            else:
+                dataset.attrs["first_sample_time"] = signal_chunk.first_sample_time
+            dataset.attrs["channel_ids"] = signal_chunk.channel_ids
+        elif isinstance(signal_chunk, SignalTimeChunk):
+            if signal_chunk.sample_data.size > 1:
+                dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data, compression="gzip")
+            else:
+                dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data)
+            dataset.attrs["type"] = "SignalTimeChunk"
+            dataset.attrs["timestamps"] = signal_chunk.timestamps
+            if signal_chunk.sample_frequency is None:
+                dataset.attrs["sample_frequency"] = np.empty([0, 0])
+            else:
+                dataset.attrs["sample_frequency"] = signal_chunk.sample_frequency
+            dataset.attrs["channel_ids"] = signal_chunk.channel_ids
         else:
-            dataset = signals_group.create_dataset(name, data=signal_chunk.sample_data)
+            raise TypeError(f"Unsupported signal chunk type: {type(signal_chunk)}")
 
-        if signal_chunk.sample_frequency is None:
-            dataset.attrs["sample_frequency"] = np.empty([0, 0])
+    def load_signal_chunk(self, dataset: h5py.Dataset):
+        chunk_type = dataset.attrs.get("type", None)
+        if chunk_type == "SignalChunk":
+            if dataset.attrs["sample_frequency"].size < 1:
+                sample_frequency = None
+            else:
+                sample_frequency = dataset.attrs["sample_frequency"]
+            if dataset.attrs["first_sample_time"].size < 1:
+                first_sample_time = None
+            else:
+                first_sample_time = dataset.attrs["first_sample_time"]
+            return SignalChunk(
+                sample_data=np.array(dataset[()]),
+                sample_frequency=sample_frequency,
+                first_sample_time=first_sample_time,
+                channel_ids=dataset.attrs["channel_ids"].tolist()
+            )
+        elif chunk_type == "SignalTimeChunk":
+            if dataset.attrs["sample_frequency"].size < 1:
+                sample_frequency = None
+            else:
+                sample_frequency = dataset.attrs["sample_frequency"]
+            timestamps = dataset.attrs["timestamps"]
+            return SignalTimeChunk(
+                sample_data=np.array(dataset[()]),
+                timestamps=np.array(timestamps),
+                channel_ids=dataset.attrs["channel_ids"].tolist(),
+                sample_frequency=sample_frequency
+            )
         else:
-            dataset.attrs["sample_frequency"] = signal_chunk.sample_frequency
-
-        if signal_chunk.first_sample_time is None:
-            dataset.attrs["first_sample_time"] = np.empty([0, 0])
-        else:
-            dataset.attrs["first_sample_time"] = signal_chunk.first_sample_time
-
-        dataset.attrs["channel_ids"] = signal_chunk.channel_ids
-
-    def load_signal_chunk(self, dataset: h5py.Dataset) -> SignalChunk:
-        if dataset.attrs["sample_frequency"].size < 1:
-            sample_frequency = None
-        else:
-            sample_frequency = dataset.attrs["sample_frequency"]
-
-        if dataset.attrs["first_sample_time"].size < 1:
-            first_sample_time = None
-        else:
-            first_sample_time = dataset.attrs["first_sample_time"]
-        return SignalChunk(
-            sample_data=np.array(dataset[()]),
-            sample_frequency=sample_frequency,
-            first_sample_time=first_sample_time,
-            channel_ids=dataset.attrs["channel_ids"].tolist()
-        )
+            raise TypeError(f"Unsupported signal chunk type: {chunk_type}")
 
     def dump_trial(self, trial: Trial, trial_group: h5py.Group) -> None:
         trial_group.attrs["start_time"] = trial.start_time
