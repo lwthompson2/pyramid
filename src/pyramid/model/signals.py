@@ -15,11 +15,11 @@ class SignalTimeChunk(BufferData):
     timestamps: np.ndarray
     """1D array of timestamps for each sample (length n)."""
 
-    sample_frequency: float = None
-    """Frequency in Hz of the samples (optional, for downstream use)."""
-
     channel_ids: list[str | int]
     """Identifiers for the channels represented in this signal chunk."""
+
+    sample_frequency: float = None
+    """Frequency in Hz of the samples (optional, for downstream use)."""
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, self.__class__):
@@ -40,16 +40,16 @@ class SignalTimeChunk(BufferData):
         return SignalTimeChunk(
             np.empty([0, num_channels], dtype=dtype),
             np.empty([0], dtype=np.float64),
-            sample_frequency,
-            channel_ids
+            channel_ids,
+            sample_frequency
         )
 
     def copy(self) -> Self:
         return SignalTimeChunk(
             self.sample_data.copy(),
             self.timestamps.copy(),
-            self.sample_frequency,
-            self.channel_ids.copy() if self.channel_ids is not None else None
+            self.channel_ids.copy() if self.channel_ids is not None else None,
+            self.sample_frequency
         )
 
     def get_time_selector(self, start_time: float = None, end_time: float = None):
@@ -70,8 +70,8 @@ class SignalTimeChunk(BufferData):
         return SignalTimeChunk(
             range_sample_data,
             range_timestamps,
-            self.sample_frequency,
-            self.channel_ids
+            self.channel_ids,
+            self.sample_frequency
         )
 
     def append(self, other: Self) -> None:
