@@ -20,6 +20,7 @@ class PhyClusterEventReader(Reader):
         sample_rate_param_name: str = "sample_rate",
         spike_times_name: str = "spike_times.npy",
         spike_clusters_name: str = "spike_clusters.npy",
+        sample_times_name: str = "sample_times.npy",
         cluster_glob: str = "cluster_*",
         cluster_delimiters= {'.tsv': '\t', '.csv': ','},
         cluster_id_column="cluster_id",
@@ -69,7 +70,7 @@ class PhyClusterEventReader(Reader):
         self.sample_rate_param_name = sample_rate_param_name
         self.spike_times_file = Path(phy_folder, spike_times_name)
         self.spike_clusters_file = Path(phy_folder, spike_clusters_name)
-
+        self.sample_times_file = Path(phy_folder, sample_times_name)
         self.custer_files = phy_folder.glob(cluster_glob)
         self.cluster_delimiters = cluster_delimiters
         self.cluster_id_column = cluster_id_column
@@ -93,7 +94,10 @@ class PhyClusterEventReader(Reader):
         self.current_row = 0
         self.spikes_times = np.load(self.spike_times_file, mmap_mode="r")
         self.spike_clusters = np.load(self.spike_clusters_file, mmap_mode="r")
-
+        # YOU CANNOT ASSUME THAT SAMPLES ARE CONSTANTLY LINEARLY INCREMENTED.
+        # THEREFORE YOU CANNOT ASSUME THAT THE OFFSET IS 0 AND YOU CANNOT ASSUME THAT SAMPLE INDICES ARE CONSECUTIVE SAMPLE NUMBERS TO COMPUTE TIMESTAMPS
+        self.sample_times = np.load(self.sample_times_file, mmap_mode="r")
+        
         # There are differences between spike interface and phy sometimes returning 1D vs 2D arrays.
         if self.spikes_times.ndim == 1:
             self.spikes_times = self.spikes_times.reshape((-1, 1))
