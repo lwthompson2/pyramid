@@ -104,6 +104,9 @@ class PhyClusterEventReader(Reader):
         if self.spike_clusters.ndim == 1:
             self.spike_clusters = self.spike_clusters.reshape((-1, 1)) 
 
+        # Convert spike sample indices to times using our sample times vector
+        self.spikes_times = self.sample_times[self.spikes_times]
+
         # Parse the spike sample rate to convert samples to seconds.
         with open(self.params_file, "r") as f:
             for line in f:
@@ -168,7 +171,9 @@ class PhyClusterEventReader(Reader):
 
         # Read the next increment of spike times and corresponding cluster ids.
         until_row = min(self.spikes_times.size, self.current_row + self.rows_per_read)
-        times = (self.spikes_times[self.current_row:until_row] / self.sample_rate) + self.offset
+        # NEW: times are already in seconds, so no need to convert
+        times = self.spikes_times[self.current_row:until_row] 
+        #times = (self.spikes_times[self.current_row:until_row] / self.sample_rate) + self.offset
         clusters = self.spike_clusters[self.current_row:until_row]
         self.current_row = until_row
 
