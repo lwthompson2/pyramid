@@ -316,12 +316,18 @@ class OpenEphysSessionTimeSeriesReader(Reader):
         if self.stream_name is None:
             self.continuous = self.session.recording.continuous[0]
         else:
-            datasets = list(self.session.recording.nwb["acquisition"].keys())
-            for item in datasets:
-                if self.stream_name in item and "TTL" not in item:
-                    self.continuous = self.session.recording.Continuous(self.session.recording.nwb, item)
-                    break
-
+            if self.session.recording.format == "nwb":
+                datasets = list(self.session.recording.nwb["acquisition"].keys())
+                for item in datasets:
+                    if self.stream_name in item and "TTL" not in item:
+                        self.continuous = self.session.recording.Continuous(self.session.recording.nwb, item)
+                        break
+            elif self.session.recording.format == "binary":
+                for item in self.session.recording.continuous:
+                    if item.metadata["stream_name"] == self.stream_name:
+                        self.continuous = item
+                        break
+            
         if "channel_names" in self.continuous.metadata:
             all_names = self.continuous.metadata["channel_names"]
         else:
