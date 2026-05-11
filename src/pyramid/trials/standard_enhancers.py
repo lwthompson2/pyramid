@@ -2,6 +2,7 @@ from typing import Any
 from numbers import Number
 import logging
 import csv
+from pathlib import Path
 
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
@@ -9,6 +10,133 @@ from scipy.ndimage import gaussian_filter1d
 from pyramid.file_finder import FileFinder
 from pyramid.model.events import NumericEventList, TextEventList
 from pyramid.trials.trials import Trial, TrialEnhancer, TrialExpression
+
+
+class PhyClusterInfoEnhancer(TrialEnhancer):
+    """Persist selected Phy cluster metadata into trial enhancements.
+
+    This enhancer reads Phy cluster CSV/TSV files once, caches metadata by cluster id,
+    and for each trial writes metadata for clusters that appear in a configured
+    NumericEventList buffer (default: "phy_clusters").
+    """
+
+    def __init__(
+        self,
+        file_finder: FileFinder,
+        phy_params_file: str = None,
+        cluster_buffer_name: str = "phy_clusters",
+        enhancement_name: str = "phy_cluster_info",
+        cluster_glob: str = "cluster_*",
+        cluster_id_column: str = "cluster_id",
+        cluster_delimiters: dict[str, str] = {".tsv": "\t", ".csv": ","},
+        csv_dialect: str = "excel",
+        **csv_fmtparams,
+    ) -> None:
+        self.phy_params_file = file_finder.find(phy_params_file) if phy_params_file else None
+        self.cluster_buffer_name = cluster_buffer_name
+        self.enhancement_name = enhancement_name
+        self.cluster_glob = cluster_glob
+        self.cluster_id_column = cluster_id_column
+        self.cluster_delimiters = cluster_delimiters
+        self.csv_dialect = csv_dialect
+        self.csv_fmtparams = csv_fmtparams
+        self.cluster_info = self._load_cluster_info() if self.phy_params_file else {}
+
+    def _coerce_value(self, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped == "":
+                return ""
+            lowered = stripped.lower()
+            if lowered == "true":
+                return True
+            if lowered == "false":
+                return False
+            try:
+                return int(stripped)
+            except ValueError:
+                pass
+            try:
+                return float(stripped)
+            except ValueError:
+                pass
+            return stripped
+        return value
+
+    def _load_cluster_info(self) -> dict[int, dict[str, Any]]:
+        if self.phy_params_file is None:
+            return {}
+
+        params_path = Path(self.phy_params_file)
+        cluster_files = sorted(params_path.parent.glob(self.cluster_glob))
+        cluster_info: dict[int, dict[str, Any]] = {}
+
+        for cluster_file in cluster_files:
+            delimiter = self.cluster_delimiters.get(cluster_file.suffix.lower(), None)
+            if delimiter is None:
+                continue
+
+            with open(cluster_file, mode="r", newline="") as f:
+                reader = csv.DictReader(
+                    f,
+                    delimiter=delimiter,
+                    dialect=self.csv_dialect,
+                    **self.csv_fmtparams,
+                )
+                for row in reader:
+                    if self.cluster_id_column not in row:
+                        continue
+
+                    cluster_id = int(row[self.cluster_id_column])
+                    info = cluster_info.get(cluster_id, {})
+                    for key, value in row.items():
+                        info[key] = self._coerce_value(value)
+                    cluster_info[cluster_id] = info
+
+        return cluster_info
+
+    def _get_runtime_cluster_info(self) -> dict[int, dict[str, Any]]:
+        if self.cluster_info:
+            return self.cluster_info
+
+        try:
+            from pyramid.neutral_zone.readers.phy import PhyClusterEventReader
+        except Exception:
+            return {}
+
+        return dict(PhyClusterEventReader.latest_selected_cluster_info)
+
+    def enhance(
+        self,
+        trial: Trial,
+        trial_number: int,
+        experiment_info: dict[str, Any],
+        subject_info: dict[str, Any]
+    ) -> None:
+        event_list = trial.numeric_events.get(self.cluster_buffer_name, None)
+        if event_list is None or event_list.event_data.size == 0:
+            return
+
+        if event_list.event_data.shape[1] < 2:
+            return
+
+        runtime_cluster_info = self._get_runtime_cluster_info()
+        if not runtime_cluster_info:
+            return
+
+        trial_cluster_ids = np.unique(event_list.event_data[:, 1].astype(int))
+        info_for_trial = {
+            str(cluster_id): runtime_cluster_info[cluster_id]
+            for cluster_id in trial_cluster_ids
+            if cluster_id in runtime_cluster_info
+        }
+
+        if info_for_trial:
+            trial.add_enhancement(self.enhancement_name, info_for_trial, "spikes")
 
 
 class TrialDurationEnhancer(TrialEnhancer):

@@ -13,6 +13,10 @@ from pyramid.neutral_zone.readers.readers import Reader
 class PhyClusterEventReader(Reader):
     """Read and filter spike/cluster time numeric events from a folder of Phy files."""
 
+    latest_params_file = None
+    latest_cluster_info = {}
+    latest_selected_cluster_info = {}
+
     def __init__(
         self,
         params_file: str,
@@ -26,7 +30,7 @@ class PhyClusterEventReader(Reader):
         cluster_id_column="cluster_id",
         cluster_filter: str = None,
         result_name: str = "spikes",
-        rows_per_read: int = 2000,
+        rows_per_read: int = 10000,
         csv_dialect: str = 'excel',
         **csv_fmtparams
     ) -> None:
@@ -71,7 +75,7 @@ class PhyClusterEventReader(Reader):
         self.spike_times_file = Path(phy_folder, spike_times_name)
         self.spike_clusters_file = Path(phy_folder, spike_clusters_name)
         self.sample_times_file = Path(phy_folder, sample_times_name)
-        self.custer_files = phy_folder.glob(cluster_glob)
+        self.custer_files = list(phy_folder.glob(cluster_glob))
         self.cluster_delimiters = cluster_delimiters
         self.cluster_id_column = cluster_id_column
         self.cluster_filter = cluster_filter
@@ -87,7 +91,61 @@ class PhyClusterEventReader(Reader):
         self.spike_clusters = None
         self.sample_rate = None
         self.clusters_to_keep = None
+        self.cluster_info = {}
+        self.selected_cluster_info = {}
         self.offset = 0.0
+
+    def _coerce_cluster_value(self, value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            if value == "":
+                return ""
+            if value.lower() == "true":
+                return True
+            if value.lower() == "false":
+                return False
+            try:
+                return int(value)
+            except ValueError:
+                pass
+            try:
+                return float(value)
+            except ValueError:
+                pass
+        return value
+
+    def _load_cluster_info(self) -> None:
+        cluster_info = {}
+        for cluster_file in self.custer_files:
+            with open(cluster_file, mode='r', newline='') as f:
+                delimiter = self.cluster_delimiters.get(cluster_file.suffix.lower(), ',')
+                csv_reader = csv.DictReader(f, delimiter=delimiter, dialect=self.csv_dialect, **self.csv_fmtparams)
+                for row in csv_reader:
+                    cluster_id = int(row[self.cluster_id_column])
+                    info = cluster_info.get(cluster_id, {})
+
+                    for name, value in row.items():
+                        info[name] = self._coerce_cluster_value(value)
+
+                    cluster_info[cluster_id] = info
+
+        self.cluster_info = cluster_info
+
+        if self.clusters_to_keep is None:
+            self.selected_cluster_info = dict(cluster_info)
+        else:
+            self.selected_cluster_info = {
+                cluster_id: cluster_info[cluster_id]
+                for cluster_id in self.clusters_to_keep
+                if cluster_id in cluster_info
+            }
+
+    def get_cluster_info(self, kept_only: bool = True) -> dict[int, dict]:
+        if kept_only:
+            return self.selected_cluster_info
+        return self.cluster_info
 
     def __enter__(self) -> Self:
         # Start reading spikes and clusters at the beginning.
@@ -155,6 +213,12 @@ class PhyClusterEventReader(Reader):
                 if keep:
                     self.clusters_to_keep.append(cluster_id)
 
+        self._load_cluster_info()
+
+        PhyClusterEventReader.latest_params_file = self.params_file
+        PhyClusterEventReader.latest_cluster_info = dict(self.cluster_info)
+        PhyClusterEventReader.latest_selected_cluster_info = dict(self.selected_cluster_info)
+
         return self
 
     def __exit__(
@@ -165,6 +229,8 @@ class PhyClusterEventReader(Reader):
     ) -> bool | None:
         self.spikes_times = None
         self.spike_clusters = None
+        self.cluster_info = {}
+        self.selected_cluster_info = {}
 
     def read_next(self) -> dict[str, BufferData]:
         if self.current_row >= self.spikes_times.size:
